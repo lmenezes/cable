@@ -10,10 +10,10 @@ import (
 
 func main() {
 	log.SetLevel(log.DebugLevel)
+	config := cable.NewConfig()
+	setupCable(config)
 
-	config := newConfig()
-
-	listeningPort := config.listeningPort
+	listeningPort := config.ListeningPort
 	if !strings.HasPrefix(listeningPort, ":") {
 		listeningPort = fmt.Sprintf(":%s", listeningPort)
 	}
@@ -22,19 +22,17 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	setupCable(config)
-
 	log.Debugf("Starting server in %s", listeningPort)
 	http.ListenAndServe(listeningPort, nil)
 }
 
 // setupCable configures the integration between slack and telegram
-func setupCable(config *Config) {
-	slack := cable.NewSlack(config.slackToken, config.slackRelayedChannel, config.slackBotUserID)
+func setupCable(config *cable.Config) {
+	slack := cable.NewSlack(config.SlackToken, config.SlackRelayedChannel, config.SlackBotUserID)
 	slack.ReadPump()
 	slack.WritePump()
 
-	telegram := cable.NewTelegram(config.telegramToken, config.telegramRelayedChannel, config.telegramBotUserID)
+	telegram := cable.NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID)
 	telegram.ReadPump()
 	telegram.WritePump()
 
