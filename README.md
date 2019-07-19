@@ -1,6 +1,8 @@
 # cable
 
-Slack &lt;> Telegram gateway
+<img width="300" alt="Screenshot 2019-06-25 at 17 45 14" src="https://user-images.githubusercontent.com/210307/61563551-8709b780-aa74-11e9-84f0-185e860a5bfe.png">
+
+Slack <-> Telegram gateway
 
 ## Development
 
