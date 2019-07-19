@@ -33,7 +33,7 @@ open a shell and export the project id, under the `GCE_PROJECT_ID` environment v
 <!-- TODO: make deploy run build if :latest image is not built -->
 
 ```sh
-export GCE_PROJECT_ID=YOUR_PROJECT_ID script/build && script/deploy
+export GCE_PROJECT_ID=YOUR_PROJECT_ID make deploy
 ```
 
 ## Setting up slack and telegram integrations
