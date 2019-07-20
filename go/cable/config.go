@@ -1,10 +1,13 @@
 package cable
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
+// Config struct containing the configuration for the application
 type Config struct {
 	ListeningPort          string
 	SlackToken             string
@@ -17,8 +20,13 @@ type Config struct {
 
 // NewConfig creates a new value of Config
 func NewConfig() *Config {
+	listeningPort := getEnv("PORT", ":8080")
+	if !strings.HasPrefix(listeningPort, ":") {
+		listeningPort = fmt.Sprintf(":%s", listeningPort)
+	}
+
 	return &Config{
-		ListeningPort:          getEnv("PORT", ":8080"),
+		ListeningPort:          listeningPort,
 		SlackToken:             getEnv("SLACK_TOKEN", ""),
 		SlackRelayedChannel:    getEnv("SLACK_RELAYED_CHANNEL", "CKDQ4EQCR"), // telegram
 		SlackBotUserID:         getEnv("SLACK_BOT_USER_ID", "BKPSC4XQR"),     // cable

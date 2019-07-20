@@ -1,29 +1,27 @@
 package main
 
 import (
-	"fmt"
+	"github.com/joho/godotenv"
 	"github.com/miguelff/cable/go/cable"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strings"
 )
 
 func main() {
 	log.SetLevel(log.DebugLevel)
+
+	if err := godotenv.Load(); err != nil {
+		log.Errorln(err)
+	}
+
 	config := cable.NewConfig()
 	setupCable(config)
-
-	listeningPort := config.ListeningPort
-	if !strings.HasPrefix(listeningPort, ":") {
-		listeningPort = fmt.Sprintf(":%s", listeningPort)
-	}
 
 	http.HandleFunc("/_health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("OK"))
 	})
 
-	log.Debugf("Starting server in %s", listeningPort)
-	http.ListenAndServe(listeningPort, nil)
+	http.ListenAndServe(config.ListeningPort, nil)
 }
 
 // setupCable configures the integration between slack and telegram
@@ -40,10 +38,16 @@ func setupCable(config *cable.Config) {
 		for {
 			select {
 			case m := <-slack.Inbox:
-				telegram.Outbox <- m
+				s, _ := m.ToTelegram()
+				log.Infoln("TELEGRAM: ", s)
+				// telegram.Outbox <- m
 			case m := <-telegram.Inbox:
-				slack.Outbox <- m
+				s, _ := m.ToSlack()
+				log.Infoln("SLACK: ", s)
+				// slack.Outbox <- m
 			}
 		}
 	}()
+
+	log.Infoln("Slack and Telegram are now connected.")
 }
