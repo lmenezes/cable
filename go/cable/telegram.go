@@ -46,7 +46,7 @@ func (t *Telegram) ReadPump() {
 				continue
 			}
 			msg := ev.Message
-			if msg.Chat == nil || msg.Chat.ID != t.relayedChannel || msg.From.ID == t.BotUserID {
+			if msg.Chat == nil || /* msg.Chat.ID != t.relayedChannel || */ msg.From.ID == t.BotUserID {
 				continue
 			}
 			t.Inbox <- &TelegramMessage{&ev}
@@ -59,11 +59,11 @@ func (t *Telegram) WritePump() {
 	go func() {
 		for {
 			m := <-t.Outbox
-			msg, err := m.ToTelegram()
+			msg, err := m.ToTelegram(t.relayedChannel)
 			if err != nil {
 				log.Errorln("Error converting message to telegram representation: ", err)
 			}
-			_, err = t.Send(api.NewMessage(t.relayedChannel, msg))
+			_, err = t.Send(msg)
 			if err != nil {
 				log.Errorln("Error writing message: ", err)
 			}

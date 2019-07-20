@@ -10,7 +10,7 @@ import (
 // Message a standard representation of a message
 type Message interface {
 	ToSlack() ([]s.MsgOption, error)
-	ToTelegram() (string, error)
+	ToTelegram(telegramChatID int64) (t.MessageConfig, error)
 	String() string
 }
 
@@ -29,22 +29,29 @@ func (sm *SlackMessage) ToSlack() ([]s.MsgOption, error) {
 
 // ToTelegram converts a received slack message into a proper representation in
 // telegram
-func (sm *SlackMessage) ToTelegram() (string, error) {
-	userID := sm.User
-
-	if user, ok := sm.UserList[userID]; ok {
-		return fmt.Sprintf("%s (%s): %s", user.RealName, user.Name, sm.Text), nil
-
-	}
-	return fmt.Sprintf("Stranger: %s", sm.Text), nil
-
+func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+	return t.MessageConfig{
+		BaseChat: t.BaseChat{
+			ChatID:           telegramChatID,
+			ReplyToMessageID: 0,
+		},
+		Text:                  sm.String(),
+		DisableWebPagePreview: false,
+		ParseMode:             t.ModeMarkdown,
+	}, nil
 }
 
 // String returns a human readable representation of a slack message for
 // debugging purposes
 func (sm *SlackMessage) String() string {
-	str, _ := sm.ToTelegram()
-	return str
+	userID := sm.User
+
+	if user, ok := sm.UserList[userID]; ok {
+		return fmt.Sprintf("**%s (%s):** %s", user.RealName, user.Name, sm.Text)
+
+	}
+
+	return fmt.Sprintf("**Stranger:** %s", sm.Text)
 }
 
 // TelegramMessage wraps a telegram update and implements the Message Interface
@@ -84,8 +91,8 @@ func (tm *TelegramMessage) ToSlack() ([]s.MsgOption, error) {
 
 // ToTelegram is a no-op that returns an error, as we dont want to re-send
 // messages from telegram to telegram at the moment
-func (tm *TelegramMessage) ToTelegram() (string, error) {
-	return "", fmt.Errorf("Messages received in telegram are not sent back to telegram")
+func (tm *TelegramMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+	return t.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
 }
 
 // String returns a human readable representation of a telegram message for
