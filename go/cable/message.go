@@ -3,6 +3,7 @@ package cable
 import (
 	"fmt"
 	t "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kyokomi/emoji"
 	s "github.com/nlopes/slack"
 	"strings"
 )
@@ -35,7 +36,7 @@ func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error
 			ChatID:           telegramChatID,
 			ReplyToMessageID: 0,
 		},
-		Text:                  sm.String(),
+		Text:                  emoji.Sprint(sm.String()),
 		DisableWebPagePreview: false,
 		ParseMode:             t.ModeMarkdown,
 	}, nil
@@ -47,11 +48,11 @@ func (sm *SlackMessage) String() string {
 	userID := sm.User
 
 	if user, ok := sm.UserList[userID]; ok {
-		return fmt.Sprintf("**%s (%s):** %s", user.RealName, user.Name, sm.Text)
+		return fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
 
 	}
 
-	return fmt.Sprintf("**Stranger:** %s", sm.Text)
+	return fmt.Sprintf("*Stranger:* %s", sm.Text)
 }
 
 // TelegramMessage wraps a telegram update and implements the Message Interface

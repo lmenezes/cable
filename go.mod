@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/hashicorp/go-retryablehttp v0.5.4
 	github.com/joho/godotenv v1.3.0
+	github.com/kyokomi/emoji v2.1.0+incompatible
 	github.com/nlopes/slack v0.5.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2

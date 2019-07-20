@@ -11,7 +11,7 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 
 	if err := godotenv.Load(); err != nil {
-		log.Errorln(err)
+		log.Errorln("Cannot load env file: ", err)
 	}
 
 	config := cable.NewConfig()
