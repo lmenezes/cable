@@ -11,6 +11,7 @@ import (
 type Message interface {
 	ToSlack() ([]s.MsgOption, error)
 	ToTelegram() (string, error)
+	String() string
 }
 
 // SlackMessage wraps a message event from slack and implements the Message
@@ -37,6 +38,13 @@ func (sm *SlackMessage) ToTelegram() (string, error) {
 	}
 	return fmt.Sprintf("Stranger: %s", sm.Text), nil
 
+}
+
+// String returns a human readable representation of a slack message for
+// debugging purposes
+func (sm *SlackMessage) String() string {
+	str, _ := sm.ToTelegram()
+	return str
 }
 
 // TelegramMessage wraps a telegram update and implements the Message Interface
@@ -78,4 +86,10 @@ func (tm *TelegramMessage) ToSlack() ([]s.MsgOption, error) {
 // messages from telegram to telegram at the moment
 func (tm *TelegramMessage) ToTelegram() (string, error) {
 	return "", fmt.Errorf("Messages received in telegram are not sent back to telegram")
+}
+
+// String returns a human readable representation of a telegram message for
+// debugging purposes
+func (tm *TelegramMessage) String() string {
+	return fmt.Sprintf("%s: %s", tm.Update.Message.From.UserName, tm.Message.Text)
 }

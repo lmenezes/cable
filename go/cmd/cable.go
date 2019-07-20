@@ -15,6 +15,7 @@ func main() {
 	}
 
 	config := cable.NewConfig()
+	log.Debugf("Config %v", config)
 	setupCable(config)
 
 	http.HandleFunc("/_health", func(w http.ResponseWriter, _ *http.Request) {
@@ -38,13 +39,11 @@ func setupCable(config *cable.Config) {
 		for {
 			select {
 			case m := <-slack.Inbox:
-				s, _ := m.ToTelegram()
-				log.Infoln("TELEGRAM: ", s)
-				// telegram.Outbox <- m
+				log.Debugln("[SLACK]", m)
+				telegram.Outbox <- m
 			case m := <-telegram.Inbox:
-				s, _ := m.ToSlack()
-				log.Infoln("SLACK: ", s)
-				// slack.Outbox <- m
+				log.Debugln("[TELEGRAM]", m)
+				slack.Outbox <- m
 			}
 		}
 	}()
