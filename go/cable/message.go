@@ -29,9 +29,9 @@ func (sm *SlackMessage) ToSlack() ([]s.MsgOption, error) {
 // ToTelegram converts a received slack message into a proper representation in
 // telegram
 func (sm *SlackMessage) ToTelegram() (string, error) {
-	userId := sm.User
+	userID := sm.User
 
-	if user, ok := sm.UserList[userId]; ok {
+	if user, ok := sm.UserList[userID]; ok {
 		return fmt.Sprintf("%s (%s): %s", user.RealName, user.Name, sm.Text), nil
 
 	}
