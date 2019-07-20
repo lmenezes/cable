@@ -93,11 +93,11 @@ func (s *Slack) WritePump() {
 			m := <-s.Outbox
 			msgOptions, err := m.ToSlack()
 			if err != nil {
-				log.Errorln("Error converting message to slack representation: ", err)
+				log.Errorln("Slack error converting message to slack representation: ", err)
 			}
 			_, _, err = s.Client.PostMessage(s.relayedChannel, msgOptions...)
 			if err != nil {
-				log.Errorln("Error writing message: ", err)
+				log.Errorln("Slack error writing message: ", err)
 			}
 		}
 	}()

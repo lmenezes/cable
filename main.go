@@ -7,6 +7,10 @@ import (
 	"net/http"
 )
 
+func ok(w http.ResponseWriter, _ *http.Request) {
+	w.Write([]byte("OK"))
+}
+
 func main() {
 	log.SetLevel(log.DebugLevel)
 
@@ -18,9 +22,8 @@ func main() {
 	log.Debugf("Config %v", config)
 	setupCable(config)
 
-	http.HandleFunc("/_health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	http.HandleFunc("/_health", ok)
+	http.HandleFunc("/", ok)
 
 	http.ListenAndServe(config.ListeningPort, nil)
 }
