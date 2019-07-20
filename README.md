@@ -6,47 +6,28 @@ Slack <-> Telegram gateway
 
 ## Development
 
-**cable** is developed in golang and ready to be deployed to Coogle Cloud Run.
+**cable** is developed in golang and ready to be deployed to Heroku
 
 **cable** is a service that listens to and relays messages between slack and telegram channels.
 
 It's not intended to be a fully-fledged product, but instead solving a particular use case. 
 
-## Installing dependencies
+## Setup cable
 
-[Download and install Google Cloud SDK](https://cloud.google.com/sdk/)
+* [Create a telegram bot](https://core.telegram.org/bots#creating-a-new-bot) and add it to your conversations. Don't forget to 
+[disable privacy mode](https://core.telegram.org/bots#privacy-mode) so the bot can listen to your conversations. 
+* [Create a slack bot](https://api.slack.com/bot-users) and add it to your workspace
+* Fill-in the variables on the .env file with the appropriate values:
+	* `SLACK_TOKEN`  The api token to act on behalf of the slack bot. Slack will give you this information when you create the app
+	* `SLACK_RELAYED_CHANNEL`  a string representing the ID of the Slack channel to relay messages to. [Get it from the `channels.list` api tester](https://api.slack.com/methods/channels.list/test)
+	* `SLACK_BOT_ID` a string representing the ID of the cable slack application, to discard relaying their messages. [Get it from the `users.list` api tester](https://api.slack.com/methods/users.list/test)
+	* `TELEGRAM_TOKEN`  The api token to act on behalf of the telegram bot. The BotFather will give you this information when you create the bot.
+	* `TELEGRAM_RELAYED_CHANNEL` an integer representing the ID of the Telegram conversation to relay messages to.  [Learn how to get it, it's the `message.chat.id` field](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id)
+	* `TELEGRAM_BOT_ID` an integer representing the ID of the cable telegram application, to discard relaying their messages. [Learn how to get it, it's the `new_chat_participant.id` field](https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id)
 
-Install and update components:
+## Deploy cable	
 
-```sh
-gcloud components install beta
-gcloud components update
-```
-
-## Deploying
-
-[Create a project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) in google cloud engine.
-
-open a shell and export the project id, under the `GCE_PROJECT_ID` environment vaiable.
-
-<!-- TODO: make deploy run build if :latest image is not built -->
-
-```sh
-export GCE_PROJECT_ID=YOUR_PROJECT_ID make deploy
-```
-
-## Setting up slack and telegram integrations
-
-```
-gcloud beta run services update SERVICE_NAME --platform managed --region us-central1 --update-env-vars SLACK_TOKEN=´YOUR_SLACK_TOKEN,TELEGRAM_TOKEN=`YOUR_TELEGRAM_TOKEN` ... 
-```
-
-Other ENV variables that you might want configure until a UI is provided are:
-
-* `SLACK_RELAYED_CHANNEL`  a string representing the ID of the Slack channel to relay messages to.
-* `SLACK_BOT_ID` a string representing the ID of the cable slack application, to discard relaying their messages.
-* `TELEGRAM_RELAYED_CHANNEL` an integer representing the ID of the Telegram conversation to relay messages to.
-* `TELEGRAM_BOT_ID` an integer representing the ID of the cable telegram application, to discard relaying their messages.
+* Follow the tutorial on [deploying golang apps to heroku](https://devcenter.heroku.com/articles/getting-started-with-go)
 
 ## Supported features
 
