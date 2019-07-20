@@ -6,10 +6,9 @@ Slack <-> Telegram gateway
 
 ## Development
 
-**cable** is developed in golang and ready to be deployed to a Coogle Cloud Run.
+**cable** is developed in golang and ready to be deployed to Coogle Cloud Run.
 
-**cable** is a service interfaced via a simple HTTP API that listens to and relays messages between a telegram channel
-and a slack channel.
+**cable** is a service that listens to and relays messages between slack and telegram channels.
 
 It's not intended to be a fully-fledged product, but instead solving a particular use case. 
 
@@ -52,6 +51,7 @@ Other ENV variables that you might want configure until a UI is provided are:
 ## Supported features
 
 * Bidireccional message relay: ✅
+* Emoji: ✅
 * Message edits: ❌
 * Threads: ❌
 * Reactions: ❌
