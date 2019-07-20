@@ -61,11 +61,11 @@ func (t *Telegram) WritePump() {
 			m := <-t.Outbox
 			msg, err := m.ToTelegram(t.relayedChannel)
 			if err != nil {
-				log.Errorln("Error converting message to telegram representation: ", err)
+				log.Errorln("Telegram error converting message to telegram representation: ", err)
 			}
 			_, err = t.Send(msg)
 			if err != nil {
-				log.Errorln("Error writing message: ", err)
+				log.Errorln("Telegram error writing message: ", err)
 			}
 		}
 	}()

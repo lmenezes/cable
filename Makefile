@@ -1,42 +1,13 @@
-GCE_APP=cable
-ifeq ($(GCE_PROJECT_ID),)
-GCE_PROJECT_ID := $(GC_APP)
-endif
-IMAGE_NAME=gcr.io/$(GCE_PROJECT_ID)/$(GCE_APP):latest
-SERVER_HOST_PORT=8080
-SERVER_CONTAINER_PORT=8080
-SERVER_PORT_MAPPING=$(SERVER_HOST_PORT):$(SERVER_CONTAINER_PORT)
+GO_BUILD_ENV := CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+DOCKER_BUILD=$(shell pwd)/.docker_build
+DOCKER_CMD=$(DOCKER_BUILD)/cable
 
-.PHONY: build
-build:
-	docker build -t $(IMAGE_NAME) .
+$(DOCKER_CMD): clean
+	mkdir -p $(DOCKER_BUILD)
+	$(GO_BUILD_ENV) go build -v -o $(DOCKER_CMD) .
 
-.PHONY: check
-check:
-	curl --write-out %{http_code} --silent --output /dev/null localhost:$(SERVER_HOST_PORT)/_health	
+clean:
+	rm -rf $(DOCKER_BUILD)
 
-.PHONY: deploy
-deploy: build
-	gcloud docker -- push $(IMAGE_NAME)
-	gcloud beta run deploy $(GCE_APP) --image $(IMAGE_NAME) --platform managed --region us-central1
-
-.PHONY: logs
-logs:
-	docker logs -f $$(docker ps -a -q --filter ancestor="$(IMAGE_NAME)" --format="{{.ID}}")
-
-.PHONY: start
-start: build
-	docker run --rm -d -p $(SERVER_PORT_MAPPING) $(IMAGE_NAME)
-
-.PHONY: stop
-stop:
-	docker stop $$(docker ps -a -q --filter ancestor="$(IMAGE_NAME)" --format="{{.ID}}")
-
-.PHONY: test
-test:
-	go test ./...
-
-.PHONY: test
-coverage:
-	go test ./... -coverprofile coverage.out
-	go tool cover -html coverage.out
+heroku: $(DOCKER_CMD)
+	heroku container:push web
