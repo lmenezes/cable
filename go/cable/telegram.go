@@ -46,7 +46,7 @@ func (t *Telegram) ReadPump() {
 				continue
 			}
 			msg := ev.Message
-			if msg.Chat == nil || /* msg.Chat.ID != t.relayedChannel || */ msg.From.ID == t.BotUserID {
+			if msg.Chat == nil || msg.Chat.ID != t.relayedChannel || msg.From.ID == t.BotUserID {
 				continue
 			}
 			t.Inbox <- &TelegramMessage{&ev}
