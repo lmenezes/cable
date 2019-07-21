@@ -31,12 +31,20 @@ func (sm *SlackMessage) ToSlack() ([]s.MsgOption, error) {
 // ToTelegram converts a received slack message into a proper representation in
 // telegram
 func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+	var text string
+
+	if user, ok := sm.users[sm.User]; ok {
+		text = fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
+	} else {
+		text = fmt.Sprintf("*Stranger:* %s", sm.Text)
+	}
+
 	return t.MessageConfig{
 		BaseChat: t.BaseChat{
 			ChatID:           telegramChatID,
 			ReplyToMessageID: 0,
 		},
-		Text:                  emoji.Sprint(sm.String()),
+		Text:                  emoji.Sprint(text),
 		DisableWebPagePreview: false,
 		ParseMode:             t.ModeMarkdown,
 	}, nil
@@ -45,14 +53,11 @@ func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error
 // String returns a human readable representation of a slack message for
 // debugging purposes
 func (sm *SlackMessage) String() string {
-	userID := sm.User
-
-	if user, ok := sm.users[userID]; ok {
-		return fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
+	if user, ok := sm.users[sm.User]; ok {
+		return fmt.Sprintf("%s: %s", user.Name, sm.Text)
 
 	}
-
-	return fmt.Sprintf("*Stranger:* %s", sm.Text)
+	return fmt.Sprintf("Stranger: %s", sm.Text)
 }
 
 // TelegramMessage wraps a telegram update and implements the Message Interface
