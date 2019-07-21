@@ -5,9 +5,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TelegramBotApi lets us replace the a telegram-bot-api.BotAPI
+// TelegramBotAPI lets us replace the a telegram-bot-api.BotAPI
 // with something that behaves like it. This is useful for tests
-type TelegramBotApi interface {
+type TelegramBotAPI interface {
 	GetUpdatesChan(config api.UpdateConfig) (api.UpdatesChannel, error)
 	Send(c api.Chattable) (api.Message, error)
 }
@@ -15,7 +15,7 @@ type TelegramBotApi interface {
 // Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
 	*Pump
-	bot            TelegramBotApi
+	bot            TelegramBotAPI
 	relayedChannel int64
 	botUserID      int
 }
@@ -63,8 +63,7 @@ func (t *Telegram) ReadPump() {
 // WritePump takes care of relaying messages arriving at the outbox
 func (t *Telegram) WritePump() {
 	go func() {
-		for {
-			m := <-t.Outbox
+		for m := range t.Outbox {
 			msg, err := m.ToTelegram(t.relayedChannel)
 			if err != nil {
 				log.Errorln("Telegram error converting message to telegram representation: ", err)

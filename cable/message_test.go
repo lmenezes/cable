@@ -16,7 +16,7 @@ func createSlackMessage(text string, authorID string, worksSpaceUsers ...slack.U
 	}
 
 	return SlackMessage{
-		MessageEvent: slack.MessageEvent{Msg: slack.Msg{User: authorID, Text: text}},
+		MessageEvent: &slack.MessageEvent{Msg: slack.Msg{User: authorID, Text: text}},
 		users:        users,
 	}
 }

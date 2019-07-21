@@ -18,19 +18,19 @@ type Message interface {
 // SlackMessage wraps a message event from slack and implements the Message
 // Interface
 type SlackMessage struct {
-	s.MessageEvent
+	*s.MessageEvent
 	users UserMap
 }
 
 // ToSlack is a no-op that returns an error, as we don't want to re-send
 // messages from slack to slack at the moment.
-func (sm *SlackMessage) ToSlack() ([]s.MsgOption, error) {
+func (sm SlackMessage) ToSlack() ([]s.MsgOption, error) {
 	return nil, fmt.Errorf("Messages received in slack are not sent to slack")
 }
 
 // ToTelegram converts a received slack message into a proper representation in
 // telegram
-func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+func (sm SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
 	var text string
 
 	if user, ok := sm.users[sm.User]; ok {
@@ -52,7 +52,7 @@ func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error
 
 // String returns a human readable representation of a slack message for
 // debugging purposes
-func (sm *SlackMessage) String() string {
+func (sm SlackMessage) String() string {
 	if user, ok := sm.users[sm.User]; ok {
 		return fmt.Sprintf("%s: %s", user.Name, sm.Text)
 
@@ -67,7 +67,7 @@ type TelegramMessage struct {
 
 // ToSlack converts a received telegram message into a proper representation in
 // slack
-func (tm *TelegramMessage) ToSlack() ([]s.MsgOption, error) {
+func (tm TelegramMessage) ToSlack() ([]s.MsgOption, error) {
 	var authorName []string
 
 	if firstName := tm.Update.Message.From.FirstName; firstName != "" {
@@ -97,12 +97,12 @@ func (tm *TelegramMessage) ToSlack() ([]s.MsgOption, error) {
 
 // ToTelegram is a no-op that returns an error, as we dont want to re-send
 // messages from telegram to telegram at the moment
-func (tm *TelegramMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+func (tm TelegramMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
 	return t.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
 }
 
 // String returns a human readable representation of a telegram message for
 // debugging purposes
-func (tm *TelegramMessage) String() string {
+func (tm TelegramMessage) String() string {
 	return fmt.Sprintf("%s: %s", tm.Update.Message.From.UserName, tm.Message.Text)
 }

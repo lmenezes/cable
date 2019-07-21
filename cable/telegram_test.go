@@ -9,6 +9,7 @@ import (
 
 type botDouble struct {
 	updatesChannel telegram.UpdatesChannel
+	sent           []telegram.Chattable
 }
 
 func (b *botDouble) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
@@ -16,6 +17,7 @@ func (b *botDouble) GetUpdatesChan(config telegram.UpdateConfig) (telegram.Updat
 }
 
 func (b *botDouble) Send(c telegram.Chattable) (telegram.Message, error) {
+	b.sent = append(b.sent, c)
 	return telegram.Message{}, nil
 }
 
@@ -62,9 +64,9 @@ func createUserUpdate(relayedChannel int64, text string) telegram.Update {
 
 func TestSlack_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
-		{},                                      // message not set, discarded
-		createBotUpdate(chatRoom, "Hey Hey!"),   // discarded, update by the bot
-		createUserUpdate(chatRoom, "Sup Jazz!"), // selected, by a user in the relayed channel
+		{},                                     // message not set, discarded
+		createBotUpdate(chatRoom, "Hey Hey!"),  // discarded, update by the bot
+		createUserUpdate(chatRoom, "Sup Jay!"), // selected, by a user in the relayed channel
 		createUserUpdate(unkownRoom, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
 		createUserUpdate(chatRoom, "Uncle Phil, you here?"),        // discarded, by a user in a chat other than the relayed channel
 	}
@@ -81,7 +83,24 @@ func TestSlack_ReadPump(t *testing.T) {
 	}
 
 	fakeTelegram.ReadPump()
-	waitTilProcessed(t, updatesCh, fakeTelegram, time.Second)
+
+	// wait for the pump to to process the channel up to 1 second, or timeout
+	timeout := time.NewTimer(1 * time.Second)
+
+WAIT:
+	for {
+		select {
+		case <-timeout.C:
+			Fail(t, "timeout while processing the Read Pump")
+			break WAIT
+		default:
+			if len(updatesCh) == 0 {
+				close(fakeTelegram.Inbox)
+				break WAIT
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 
 	var inbox []Message
 	for message := range fakeTelegram.Inbox {
@@ -89,25 +108,43 @@ func TestSlack_ReadPump(t *testing.T) {
 	}
 
 	Equal(t, 2, len(inbox))
-	Equal(t, "freshprince: Sup Jazz!", inbox[0].String())
+	Equal(t, "freshprince: Sup Jay!", inbox[0].String())
 	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
 }
 
-// waitTilProcessed waits until the updates channel is being processed by the read pump,
-// or fails if it takes more to be processed than the given duration
-func waitTilProcessed(t *testing.T, updatesCh chan telegram.Update, telegram *Telegram, duration time.Duration) {
-	timeout := time.NewTimer(duration)
+func TestSlack_WritePump(t *testing.T) {
+	bot := &botDouble{}
+
+	fakeTelegram := &Telegram{
+		relayedChannel: chatRoom,
+		botUserID:      botID,
+		bot:            bot,
+		Pump:           NewPump(),
+	}
+
+	fakeTelegram.Outbox <- createSlackMessage("Sup Jay!", "WILL")
+	fakeTelegram.Outbox <- createSlackMessage(":clap: Psss!", "JAZZ")
+
+	fakeTelegram.WritePump()
+
+	// wait for the pump to to process the channel up to 1 second, or timeout
+	timeout := time.NewTimer(1 * time.Second)
+
+WAIT:
 	for {
 		select {
 		case <-timeout.C:
 			Fail(t, "timeout while processing the Read Pump")
-			return
+			break WAIT
 		default:
-			if len(updatesCh) == 0 {
-				close(telegram.Inbox)
-				return
+			if len(fakeTelegram.Outbox) == 0 {
+				break WAIT
 			}
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
+
+	Equal(t, 2, len(bot.sent))
+	Equal(t, "*Stranger:* Sup Jay!", bot.sent[0].(telegram.MessageConfig).Text)
+	Equal(t, "*Stranger:* 👏  Psss!", bot.sent[1].(telegram.MessageConfig).Text)
 }

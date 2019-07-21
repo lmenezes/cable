@@ -6,6 +6,9 @@ const DefaultBufferSize = 100
 
 // Pump is a struct that describes am entity with an inbox and
 // and outbox channel of Messages
+//
+// TODO: pumps in both slack and telegram are infinite loops.
+// TODO: This makes difficult controlling them. Implement a stop mechanism
 type Pump struct {
 	Inbox  chan Message
 	Outbox chan Message
