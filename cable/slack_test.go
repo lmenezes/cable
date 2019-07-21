@@ -1,0 +1,112 @@
+package cable
+
+import (
+	"github.com/nlopes/slack"
+	. "github.com/stretchr/testify/assert"
+	"testing"
+	"time"
+)
+
+type fakeSlackAPI struct {
+	rtmEvents chan slack.RTMEvent
+	sent      []slack.MsgOption
+	users     []slack.User
+}
+
+func (api *fakeSlackAPI) IncomingEvents() <-chan slack.RTMEvent {
+	return api.rtmEvents
+}
+
+func (api *fakeSlackAPI) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
+	for _, msg := range options {
+		api.sent = append(api.sent, msg)
+	}
+	return "", "", nil
+}
+
+func (api *fakeSlackAPI) GetUsers() ([]slack.User, error) {
+	return api.users, nil
+}
+
+const (
+	slackUserID       = "USER"
+	slackBotID        = "BOT"
+	slackChatID       = "CHANNEL"
+	unkownSlackChatID = "UNKOWN_CHANNEL"
+)
+
+func createSlackBotUpdate(relayedChannelID string, text string) slack.RTMEvent {
+	return slack.RTMEvent{
+		Data: &slack.MessageEvent{
+			Msg: slack.Msg{
+				Text:    text,
+				Channel: relayedChannelID,
+				BotID:   slackBotID,
+			},
+		},
+	}
+}
+
+func createSlackUserUpdate(relayedChannelID string, text string) slack.RTMEvent {
+	return slack.RTMEvent{
+		Data: &slack.MessageEvent{
+			Msg: slack.Msg{
+				User:    slackUserID,
+				Text:    text,
+				Channel: relayedChannelID,
+			},
+		},
+	}
+}
+
+func TestSlack_ReadPump(t *testing.T) {
+	updates := []slack.RTMEvent{
+		{}, // message not set, discarded
+		createSlackBotUpdate(slackChatID, "Hey Hey!"),                          // discarded, update by the bot
+		createSlackUserUpdate(slackChatID, "Sup Jay!"),                         // selected, by a user in the relayed channel
+		createSlackUserUpdate(unkownSlackChatID, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
+		createSlackUserUpdate(slackChatID, "Uncle Phil, you here?"),            // discarded, by a user in a chat other than the relayed channel
+	}
+
+	updatesCh := make(chan slack.RTMEvent, len(updates))
+	for _, update := range updates {
+		updatesCh <- update
+	}
+
+	users := []slack.User{createSlackUser(slackUserID, "Will Smith", "freshprince")}
+
+	fakeSlack := &Slack{
+		relayedChannelID: slackChatID,
+		botUserID:        slackBotID,
+		client:           &fakeSlackAPI{rtmEvents: updatesCh, users: users},
+		Pump:             NewPump(),
+	}
+
+	fakeSlack.ReadPump()
+
+	// wait for the pump to to process the channel up to 1 second, or timeout
+	timeout := time.NewTimer(1 * time.Second)
+WAIT:
+	for {
+		select {
+		case <-timeout.C:
+			Fail(t, "timeout while processing the Read Pump")
+			break WAIT
+		default:
+			if len(updatesCh) == 0 {
+				close(fakeSlack.Inbox)
+				break WAIT
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	var inbox []Message
+	for message := range fakeSlack.Inbox {
+		inbox = append(inbox, message)
+	}
+
+	Equal(t, 2, len(inbox))
+	Equal(t, "freshprince: Sup Jay!", inbox[0].String())
+	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
+}
