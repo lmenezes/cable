@@ -5,7 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Telegram adapts the Telegram Api creating a pump of messages
+// Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
 	*Pump
 	*api.BotAPI
@@ -20,7 +20,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int) *Telegram {
 		log.Fatalln(err)
 	}
 	return &Telegram{
-		Pump:           newPump(),
+		Pump:           NewPump(),
 		BotAPI:         bot,
 		relayedChannel: relayedChannel,
 		BotUserID:      BotUserID,

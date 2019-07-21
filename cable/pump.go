@@ -1,6 +1,6 @@
 package cable
 
-// bufferSize is the number of messages that can be enqueued in the inbox and
+// DefaultBufferSize is the number of messages that can be enqueued in the inbox and
 // outbox channels
 const DefaultBufferSize = 100
 
@@ -11,7 +11,9 @@ type Pump struct {
 	Outbox chan Message
 }
 
-func newPump() *Pump {
+// NewPump creates a new value of the Pump struct with Inbox and Outbox as
+// buffered channels of size DefaultBufferSize
+func NewPump() *Pump {
 	return &Pump{
 		Inbox:  make(chan Message, DefaultBufferSize),
 		Outbox: make(chan Message, DefaultBufferSize),

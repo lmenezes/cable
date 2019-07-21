@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Slack adapts the Telegram Api creating a pump of messages
+// Slack adapts the Telegram Api creating a Pump of messages
 type Slack struct {
 	*Pump
 	*api.Client
@@ -18,7 +18,7 @@ type Slack struct {
 // NewSlack returns the address of a new value of Slack
 func NewSlack(token string, relayedChannel string, botUserID string) *Slack {
 	slack := &Slack{
-		Pump:           newPump(),
+		Pump:           NewPump(),
 		Client:         api.New(token),
 		relayedChannel: relayedChannel,
 		botUserID:      botUserID,
