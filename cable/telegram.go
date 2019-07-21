@@ -1,7 +1,7 @@
 package cable
 
 import (
-	api "github.com/go-telegram-bot-api/telegram-bot-api"
+	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,8 +17,8 @@ const (
 // TelegramAPI lets us replace the a telegram-bot-api.BotAPI
 // with something that behaves like it. This is useful for tests
 type TelegramAPI interface {
-	GetUpdatesChan(config api.UpdateConfig) (api.UpdatesChannel, error)
-	Send(c api.Chattable) (api.Message, error)
+	GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error)
+	Send(c telegram.Chattable) (telegram.Message, error)
 }
 
 /* Section: Telegram type implementing ReadPump and WritePump */
@@ -40,7 +40,7 @@ type Telegram struct {
 
 // NewTelegram returns the address of a new value of Telegram
 func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) *Telegram {
-	bot, err := api.NewBotAPI(token)
+	bot, err := telegram.NewBotAPI(token)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -56,7 +56,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 // ReadPump makes slack listening for messages in a different goroutine.
 // Those messages will be pushed to the Inbox of the Pump.
 func (t *Telegram) ReadPump() {
-	u := api.NewUpdate(0)
+	u := telegram.NewUpdate(0)
 	u.Timeout = readTimeoutSecs
 
 	updates, err := t.bot.GetUpdatesChan(u)

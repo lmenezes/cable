@@ -25,7 +25,6 @@ func createSlackMessage(text string, authorID string, worksSpaceUsers ...slack.U
 // createSlackUser is a helper factory of slack users for the tests below
 func createSlackUser(ID string, realName string, nickname string) slack.User {
 	return slack.User{ID: ID, RealName: realName, Name: nickname}
-
 }
 
 // createTelegramMessage is a helper factory of telegram messages for the tests below

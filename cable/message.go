@@ -2,35 +2,35 @@ package cable
 
 import (
 	"fmt"
-	t "github.com/go-telegram-bot-api/telegram-bot-api"
+	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/kyokomi/emoji"
-	s "github.com/nlopes/slack"
+	slack "github.com/nlopes/slack"
 	"strings"
 )
 
 // Message a standard representation of a message
 type Message interface {
-	ToSlack() ([]s.MsgOption, error)
-	ToTelegram(telegramChatID int64) (t.MessageConfig, error)
+	ToSlack() ([]slack.MsgOption, error)
+	ToTelegram(telegramChatID int64) (telegram.MessageConfig, error)
 	String() string
 }
 
 // SlackMessage wraps a message event from slack and implements the Message
 // Interface
 type SlackMessage struct {
-	*s.MessageEvent
+	*slack.MessageEvent
 	users UserMap
 }
 
 // ToSlack is a no-op that returns an error, as we don't want to re-send
 // messages from slack to slack at the moment.
-func (sm SlackMessage) ToSlack() ([]s.MsgOption, error) {
+func (sm SlackMessage) ToSlack() ([]slack.MsgOption, error) {
 	return nil, fmt.Errorf("Messages received in slack are not sent to slack")
 }
 
 // ToTelegram converts a received slack message into a proper representation in
 // telegram
-func (sm SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
+func (sm SlackMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
 	var text string
 
 	if user, ok := sm.users[sm.User]; ok {
@@ -39,14 +39,14 @@ func (sm SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error)
 		text = fmt.Sprintf("*Stranger:* %s", sm.Text)
 	}
 
-	return t.MessageConfig{
-		BaseChat: t.BaseChat{
+	return telegram.MessageConfig{
+		BaseChat: telegram.BaseChat{
 			ChatID:           telegramChatID,
 			ReplyToMessageID: 0,
 		},
 		Text:                  emoji.Sprint(text),
 		DisableWebPagePreview: false,
-		ParseMode:             t.ModeMarkdown,
+		ParseMode:             telegram.ModeMarkdown,
 	}, nil
 }
 
@@ -62,12 +62,12 @@ func (sm SlackMessage) String() string {
 
 // TelegramMessage wraps a telegram update and implements the Message Interface
 type TelegramMessage struct {
-	t.Update
+	telegram.Update
 }
 
 // ToSlack converts a received telegram message into a proper representation in
 // slack
-func (tm TelegramMessage) ToSlack() ([]s.MsgOption, error) {
+func (tm TelegramMessage) ToSlack() ([]slack.MsgOption, error) {
 	var authorName []string
 
 	if firstName := tm.Update.Message.From.FirstName; firstName != "" {
@@ -86,19 +86,19 @@ func (tm TelegramMessage) ToSlack() ([]s.MsgOption, error) {
 		}
 	}
 
-	attachment := s.Attachment{
+	attachment := slack.Attachment{
 		Fallback:   tm.Message.Text,
 		AuthorName: strings.Join(authorName, " "),
 		Text:       tm.Message.Text,
 	}
 
-	return []s.MsgOption{s.MsgOptionAttachments(attachment)}, nil
+	return []slack.MsgOption{slack.MsgOptionAttachments(attachment)}, nil
 }
 
 // ToTelegram is a no-op that returns an error, as we dont want to re-send
 // messages from telegram to telegram at the moment
-func (tm TelegramMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error) {
-	return t.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
+func (tm TelegramMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
+	return telegram.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
 }
 
 // String returns a human readable representation of a telegram message for
