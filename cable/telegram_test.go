@@ -7,38 +7,38 @@ import (
 	"time"
 )
 
-type botDouble struct {
+type fakeTelegramAPi struct {
 	updatesChannel telegram.UpdatesChannel
 	sent           []telegram.Chattable
 }
 
-func (b *botDouble) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
-	return b.updatesChannel, nil
+func (api *fakeTelegramAPi) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
+	return api.updatesChannel, nil
 }
 
-func (b *botDouble) Send(c telegram.Chattable) (telegram.Message, error) {
-	b.sent = append(b.sent, c)
+func (api *fakeTelegramAPi) Send(c telegram.Chattable) (telegram.Message, error) {
+	api.sent = append(api.sent, c)
 	return telegram.Message{}, nil
 }
 
 const (
-	botID = iota
-	userID
-	chatRoom
-	unkownRoom
+	telegramBotID = iota
+	telegramUserID
+	telegramChatID
+	unkownTelegramChatID
 )
 
 // createUpdate creates a message update as if it was written in the relayChannel,
 // by a user with the given UserID, and with the given text
-func createBotUpdate(relayedChannel int64, text string) telegram.Update {
+func createTelegramBotUpdate(relayedChannelID int64, text string) telegram.Update {
 	return telegram.Update{
 		Message: &telegram.Message{
 			Text: text,
 			Chat: &telegram.Chat{
-				ID: relayedChannel,
+				ID: relayedChannelID,
 			},
 			From: &telegram.User{
-				ID:       botID,
+				ID:       telegramBotID,
 				UserName: "CableBot",
 			},
 		},
@@ -47,7 +47,7 @@ func createBotUpdate(relayedChannel int64, text string) telegram.Update {
 
 // createUpdate creates a message update as if it was written in the relayChannel,
 // by a user with the given UserID, and with the given text
-func createUserUpdate(relayedChannel int64, text string) telegram.Update {
+func createTelegramUserUpdate(relayedChannel int64, text string) telegram.Update {
 	return telegram.Update{
 		Message: &telegram.Message{
 			Text: text,
@@ -55,7 +55,7 @@ func createUserUpdate(relayedChannel int64, text string) telegram.Update {
 				ID: relayedChannel,
 			},
 			From: &telegram.User{
-				ID:       userID,
+				ID:       telegramUserID,
 				UserName: "freshprince",
 			},
 		},
@@ -64,11 +64,11 @@ func createUserUpdate(relayedChannel int64, text string) telegram.Update {
 
 func TestTelegram_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
-		{},                                     // message not set, discarded
-		createBotUpdate(chatRoom, "Hey Hey!"),  // discarded, update by the bot
-		createUserUpdate(chatRoom, "Sup Jay!"), // selected, by a user in the relayed channel
-		createUserUpdate(unkownRoom, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
-		createUserUpdate(chatRoom, "Uncle Phil, you here?"),        // discarded, by a user in a chat other than the relayed channel
+		{}, // message not set, discarded
+		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                          // discarded, update by the bot
+		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                         // selected, by a user in the relayed channel
+		createTelegramUserUpdate(unkownTelegramChatID, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
+		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),            // discarded, by a user in a chat other than the relayed channel
 	}
 	updatesCh := make(chan telegram.Update, len(updates))
 	for _, update := range updates {
@@ -76,9 +76,9 @@ func TestTelegram_ReadPump(t *testing.T) {
 	}
 
 	fakeTelegram := &Telegram{
-		relayedChannelID: chatRoom,
-		botUserID:        botID,
-		bot:              &botDouble{updatesChannel: updatesCh},
+		relayedChannelID: telegramChatID,
+		botUserID:        telegramBotID,
+		bot:              &fakeTelegramAPi{updatesChannel: updatesCh},
 		Pump:             NewPump(),
 	}
 
@@ -113,11 +113,11 @@ WAIT:
 }
 
 func TestTelegram_WritePump(t *testing.T) {
-	bot := &botDouble{}
+	bot := &fakeTelegramAPi{}
 
 	fakeTelegram := &Telegram{
-		relayedChannelID: chatRoom,
-		botUserID:        botID,
+		relayedChannelID: telegramChatID,
+		botUserID:        telegramBotID,
 		bot:              bot,
 		Pump:             NewPump(),
 	}

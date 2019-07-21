@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-/* Section: Slack API interface and its client.Client adapter */
+/* Section: Slack API interface and its slack.Client adapter */
 
-// SlackAPI lets us replace the client.Client with something that behaves like it.
+// SlackAPI lets us replace the slack API client with something that behaves like it.
 // This is used to improve testability
 type SlackAPI interface {
 	// IncomingEvents returns the channel of events the slack is listening to
 	IncomingEvents() <-chan slack.RTMEvent
-	// PostMessage Posts a message in a client channel
+	// PostMessage Posts a message in a slack channel
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
 	// GetUsers retrieves information about a workspace in Slack
 	GetUsers() ([]slack.User, error)
@@ -43,7 +43,7 @@ func (adapter *slackAPIAdapter) GetUsers() ([]slack.User, error) {
 	return adapter.client.GetUsers()
 }
 
-// UserMap is a collection of client Users indexed by their ID, which is a string
+// UserMap is a collection of slack Users indexed by their ID, which is a string
 type UserMap map[string]slack.User
 
 /* Section: Slack type implementing ReadPump() and WritePump() */
@@ -53,16 +53,16 @@ type Slack struct {
 	// Pump is the pair of Inbox and Outbox channel to receive
 	// messages from and write messages to Slack
 	*Pump
-	// slack is the client client client
-	slack SlackAPI
+	// client is the slack api client
+	client SlackAPI
 	// relayedChannelID is the channel messages will be read from and relayed to
 	relayedChannelID string
 	// botUserID is the id of the slack installed in the organization, which is
-	// used to discard messages posted in client as a result of relaying another
+	// used to discard messages posted in slack as a result of relaying another
 	// service
 	botUserID string
 	// userIdentitiesCache is a local cache of the list of users
-	// in the workspace client is installed in
+	// in the workspace slack is installed in
 	userIdentitiesCache UserMap
 	// cache mutex controls access to the cache by multiple goroutines
 	cacheMutex sync.Mutex
@@ -72,7 +72,7 @@ type Slack struct {
 func NewSlack(token string, relayedChannel string, botUserID string) *Slack {
 	slack := &Slack{
 		Pump:             NewPump(),
-		slack:            &slackAPIAdapter{client: slack.New(token)},
+		client:           &slackAPIAdapter{client: slack.New(token)},
 		relayedChannelID: relayedChannel,
 		botUserID:        botUserID,
 	}
@@ -102,7 +102,7 @@ func (s *Slack) GetIdentities() UserMap {
 	}()
 
 	log.Debugln("Setting users cache...")
-	users, err := s.slack.GetUsers()
+	users, err := s.client.GetUsers()
 	if err != nil {
 		log.Errorln("Cannot get user identities", err)
 	}
@@ -117,11 +117,11 @@ func (s *Slack) GetIdentities() UserMap {
 	return res
 }
 
-// ReadPump makes client listening for messages in a different goroutine.
+// ReadPump makes slack listening for messages in a different goroutine.
 // Those messages will be pushed to the Inbox of the Pump.
 func (s *Slack) ReadPump() {
 	go func() {
-		for msg := range s.slack.IncomingEvents() {
+		for msg := range s.client.IncomingEvents() {
 			switch ev := msg.Data.(type) {
 			case *slack.MessageEvent:
 				if ev.Channel != s.relayedChannelID || ev.BotID == s.botUserID {
@@ -142,7 +142,7 @@ func (s *Slack) WritePump() {
 			if err != nil {
 				log.Errorln("Slack error converting message to client representation: ", err)
 			}
-			_, _, err = s.slack.PostMessage(s.relayedChannelID, msgOptions...)
+			_, _, err = s.client.PostMessage(s.relayedChannelID, msgOptions...)
 			if err != nil {
 				log.Errorln("Slack error writing message: ", err)
 			}

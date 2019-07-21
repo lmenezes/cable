@@ -8,7 +8,7 @@ const DefaultBufferSize = 100
 // and outbox channel of Messages
 //
 // TODO: Implement a stop mechanism for pumps, and avoid races.
-//		Currently, pumps in both client and telegram are infinite loops.
+//		Currently, pumps in both slack and telegram are infinite loops.
 //		They should have a way to stop manually.
 //
 type Pump struct {

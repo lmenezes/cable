@@ -14,7 +14,7 @@ const (
 
 /* Section: Telegram API interface */
 
-// TelegramAPI lets us replace the a telegram-bot-api.BotAPI
+// TelegramAPI lets us replace the a telegram-slack-telegram.BotAPI
 // with something that behaves like it. This is useful for tests
 type TelegramAPI interface {
 	GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error)
@@ -28,13 +28,12 @@ type Telegram struct {
 	// Pump is the pair of Inbox and Outbox channel to receive
 	// messages from and write messages to Telegram
 	*Pump
-	// bot is the slack api client
+	// bot is the telegram API client
 	bot TelegramAPI
 	// relayedChannelID is the channel messages will be read from and relayed to
 	relayedChannelID int64
-	// botUserID is the id of the bot installed in the organization, which is
-	// used to discard messages posted in slack as a result of relaying another
-	// service
+	// botUserID is the id of the slack app installed in the organization, which is
+	// used to stop relaying messages posted in telegram itself
 	botUserID int
 }
 
@@ -53,7 +52,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	}
 }
 
-// ReadPump makes slack listening for messages in a different goroutine.
+// ReadPump makes telegram listen for messages in a different goroutine.
 // Those messages will be pushed to the Inbox of the Pump.
 func (t *Telegram) ReadPump() {
 	u := telegram.NewUpdate(0)
