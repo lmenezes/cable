@@ -16,7 +16,7 @@ It's not intended to be a fully-fledged product, but instead solving a particula
 
 * [Create a telegram bot](https://core.telegram.org/bots#creating-a-new-bot) and add it to your conversations. Don't forget to 
 [disable privacy mode](https://core.telegram.org/bots#privacy-mode) so the bot can listen to your conversations. 
-* [Create a slack bot](https://api.slack.com/bot-users) and add it to your workspace
+* [Create a slack bot](https://api.slack.com/bot-users) and add it to your workspace.
 * Setup the appropriate environment variables:
 	* `SLACK_TOKEN`  The api token to act on behalf of the slack bot. Slack will give you this information when you create the app
 	* `SLACK_RELAYED_CHANNEL`  a string representing the ID of the Slack channel to relay messages to. [Get it from the `channels.list` api tester](https://api.slack.com/methods/channels.list/test)
