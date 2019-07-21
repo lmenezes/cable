@@ -5,7 +5,6 @@ import (
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/nlopes/slack"
 	. "github.com/stretchr/testify/assert"
-	"net/url"
 	"testing"
 )
 
@@ -42,11 +41,6 @@ func createTelegramMessage(text string, authorFirstName string, authorLastName s
 			},
 		},
 	}
-}
-
-type slackMockContext struct {
-	endpoint string
-	values   url.Values
 }
 
 func TestSlackMessage_String_KnownUser(t *testing.T) {
