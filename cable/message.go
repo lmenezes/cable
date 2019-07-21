@@ -19,7 +19,7 @@ type Message interface {
 // Interface
 type SlackMessage struct {
 	*s.MessageEvent
-	UserList map[string]s.User
+	users UserMap
 }
 
 // ToSlack is a no-op that returns an error, as we don't want to re-send
@@ -47,7 +47,7 @@ func (sm *SlackMessage) ToTelegram(telegramChatID int64) (t.MessageConfig, error
 func (sm *SlackMessage) String() string {
 	userID := sm.User
 
-	if user, ok := sm.UserList[userID]; ok {
+	if user, ok := sm.users[userID]; ok {
 		return fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
 
 	}

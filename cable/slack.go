@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// UserMap is a collection of slack Users indexed by their ID, which is a string
+type UserMap map[string]api.User
+
 // Slack adapts the Telegram Api creating a Pump of messages
 type Slack struct {
 	*Pump
@@ -27,12 +30,12 @@ func NewSlack(token string, relayedChannel string, botUserID string) *Slack {
 	return slack
 }
 
-var userIdentitiesCache map[string]api.User
+var userIdentitiesCache UserMap
 var cacheMutex sync.Mutex
 
 // GetIdentities returns the list of user information and caches it locally for
 // a minute
-func (s *Slack) GetIdentities() map[string]api.User {
+func (s *Slack) GetIdentities() UserMap {
 	cacheMutex.Lock()
 	if userIdentitiesCache != nil {
 		defer cacheMutex.Unlock()
@@ -56,7 +59,7 @@ func (s *Slack) GetIdentities() map[string]api.User {
 	if err != nil {
 		log.Errorln("Cannot get user identities", err)
 	}
-	res := make(map[string]api.User)
+	res := make(UserMap)
 	for _, u := range users {
 		res[u.ID] = u
 	}
