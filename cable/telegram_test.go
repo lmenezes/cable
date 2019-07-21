@@ -62,7 +62,7 @@ func createUserUpdate(relayedChannel int64, text string) telegram.Update {
 	}
 }
 
-func TestSlack_ReadPump(t *testing.T) {
+func TestTelegram_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
 		{},                                     // message not set, discarded
 		createBotUpdate(chatRoom, "Hey Hey!"),  // discarded, update by the bot
@@ -76,10 +76,10 @@ func TestSlack_ReadPump(t *testing.T) {
 	}
 
 	fakeTelegram := &Telegram{
-		relayedChannel: chatRoom,
-		botUserID:      botID,
-		bot:            &botDouble{updatesChannel: updatesCh},
-		Pump:           NewPump(),
+		relayedChannelID: chatRoom,
+		botUserID:        botID,
+		bot:              &botDouble{updatesChannel: updatesCh},
+		Pump:             NewPump(),
 	}
 
 	fakeTelegram.ReadPump()
@@ -112,14 +112,14 @@ WAIT:
 	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
 }
 
-func TestSlack_WritePump(t *testing.T) {
+func TestTelegram_WritePump(t *testing.T) {
 	bot := &botDouble{}
 
 	fakeTelegram := &Telegram{
-		relayedChannel: chatRoom,
-		botUserID:      botID,
-		bot:            bot,
-		Pump:           NewPump(),
+		relayedChannelID: chatRoom,
+		botUserID:        botID,
+		bot:              bot,
+		Pump:             NewPump(),
 	}
 
 	fakeTelegram.Outbox <- createSlackMessage("Sup Jay!", "WILL")

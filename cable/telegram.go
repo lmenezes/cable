@@ -5,19 +5,37 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// TelegramBotAPI lets us replace the a telegram-bot-api.BotAPI
+const (
+	// readTimeoutSecs is the number of seconds before timing out the
+	// read pump. Timing out implies resetting the connection with the
+	// server, which can help in case the connection hung.
+	readTimeoutSecs = 60
+)
+
+/* Section: Telegram API interface */
+
+// TelegramAPI lets us replace the a telegram-bot-api.BotAPI
 // with something that behaves like it. This is useful for tests
-type TelegramBotAPI interface {
+type TelegramAPI interface {
 	GetUpdatesChan(config api.UpdateConfig) (api.UpdatesChannel, error)
 	Send(c api.Chattable) (api.Message, error)
 }
 
+/* Section: Telegram type implementing ReadPump and WritePump */
+
 // Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
+	// Pump is the pair of Inbox and Outbox channel to receive
+	// messages from and write messages to Telegram
 	*Pump
-	bot            TelegramBotAPI
-	relayedChannel int64
-	botUserID      int
+	// bot is the slack api client
+	bot TelegramAPI
+	// relayedChannelID is the channel messages will be read from and relayed to
+	relayedChannelID int64
+	// botUserID is the id of the bot installed in the organization, which is
+	// used to discard messages posted in slack as a result of relaying another
+	// service
+	botUserID int
 }
 
 // NewTelegram returns the address of a new value of Telegram
@@ -28,10 +46,10 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	}
 	bot.Debug = debug
 	return &Telegram{
-		Pump:           NewPump(),
-		bot:            bot,
-		relayedChannel: relayedChannel,
-		botUserID:      BotUserID,
+		Pump:             NewPump(),
+		bot:              bot,
+		relayedChannelID: relayedChannel,
+		botUserID:        BotUserID,
 	}
 }
 
@@ -39,7 +57,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 // Those messages will be pushed to the Inbox of the Pump.
 func (t *Telegram) ReadPump() {
 	u := api.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = readTimeoutSecs
 
 	updates, err := t.bot.GetUpdatesChan(u)
 	if err != nil {
@@ -52,7 +70,7 @@ func (t *Telegram) ReadPump() {
 				continue
 			}
 			msg := ev.Message
-			if msg.Chat == nil || msg.Chat.ID != t.relayedChannel || msg.From.ID == t.botUserID {
+			if msg.Chat == nil || msg.Chat.ID != t.relayedChannelID || msg.From.ID == t.botUserID {
 				continue
 			}
 			t.Inbox <- &TelegramMessage{ev}
@@ -64,7 +82,7 @@ func (t *Telegram) ReadPump() {
 func (t *Telegram) WritePump() {
 	go func() {
 		for m := range t.Outbox {
-			msg, err := m.ToTelegram(t.relayedChannel)
+			msg, err := m.ToTelegram(t.relayedChannelID)
 			if err != nil {
 				log.Errorln("Telegram error converting message to telegram representation: ", err)
 			}
