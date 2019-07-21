@@ -8,7 +8,7 @@ import (
 )
 
 func ok(w http.ResponseWriter, _ *http.Request) {
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func main() {
@@ -25,5 +25,5 @@ func main() {
 	http.HandleFunc("/_health", ok)
 	http.HandleFunc("/", ok)
 
-	http.ListenAndServe(config.ListeningPort, nil)
+	_ = http.ListenAndServe(config.ListeningPort, nil)
 }

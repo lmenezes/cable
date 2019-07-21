@@ -2,6 +2,7 @@ package cable
 
 import (
 	"encoding/json"
+	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/nlopes/slack"
 	. "github.com/stretchr/testify/assert"
@@ -109,12 +110,15 @@ func TestTelegramMessage_ToSlack(t *testing.T) {
 
 	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
 	slackMessage, _ := msg.ToSlack()
+
 	// What slack can send is not really a struct but a closure that when called given a context
 	// returns the HTML payload to send. slack.UnsafeApplyMsgOptions let us debug this.
 	_, configuration, _ := slack.UnsafeApplyMsgOptions("SAMPLE_TOKEN", "SAMPLE_CHANNEL", slackMessage...)
-	serializedAttachments := []byte(configuration["attachments"][0])
+	serializedAttachments := configuration["attachments"][0]
 	jsonMessages := []slackJSONMessage{}
-	json.Unmarshal(serializedAttachments, &jsonMessages)
+	if err := json.Unmarshal([]byte(serializedAttachments), &jsonMessages); err != nil {
+		Fail(t, fmt.Sprintf("There was a problem unmarshalling json, %s", err))
+	}
 	actual := jsonMessages[0]
 
 	expected := slackJSONMessage{
