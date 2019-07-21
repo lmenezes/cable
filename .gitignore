@@ -1,5 +1,6 @@
-cable-d
-!cable/
-.env
 ignored/
+cable-d
+.env
+.coverage
 .docker_build/
+

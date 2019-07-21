@@ -11,3 +11,11 @@ clean:
 
 heroku: $(DOCKER_CMD)
 	heroku container:push web
+
+.PHONY: test
+test:
+	go test ./...
+
+coverage:
+	go test ./... -coverprofile .coverage
+	go tool cover -html .coverage
