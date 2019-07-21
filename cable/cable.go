@@ -11,7 +11,7 @@ func Setup(config *Config) {
 	slack.ReadPump()
 	slack.WritePump()
 
-	telegram := NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID)
+	telegram := NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID, false)
 	telegram.ReadPump()
 	telegram.WritePump()
 

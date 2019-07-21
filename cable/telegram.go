@@ -5,37 +5,43 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TelegramBotApi lets us replace the a telegram-bot-api.BotAPI
+// with something that behaves like it. This is useful for tests
+type TelegramBotApi interface {
+	GetUpdatesChan(config api.UpdateConfig) (api.UpdatesChannel, error)
+	Send(c api.Chattable) (api.Message, error)
+}
+
 // Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
 	*Pump
-	*api.BotAPI
+	bot            TelegramBotApi
 	relayedChannel int64
-	BotUserID      int
+	botUserID      int
 }
 
 // NewTelegram returns the address of a new value of Telegram
-func NewTelegram(token string, relayedChannel int64, BotUserID int) *Telegram {
+func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) *Telegram {
 	bot, err := api.NewBotAPI(token)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	bot.Debug = debug
 	return &Telegram{
 		Pump:           NewPump(),
-		BotAPI:         bot,
+		bot:            bot,
 		relayedChannel: relayedChannel,
-		BotUserID:      BotUserID,
+		botUserID:      BotUserID,
 	}
 }
 
 // ReadPump makes slack listening for messages in a different goroutine.
 // Those messages will be pushed to the Inbox of the Pump.
 func (t *Telegram) ReadPump() {
-	t.Debug = true
-
 	u := api.NewUpdate(0)
 	u.Timeout = 60
 
-	updates, err := t.GetUpdatesChan(u)
+	updates, err := t.bot.GetUpdatesChan(u)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -46,10 +52,10 @@ func (t *Telegram) ReadPump() {
 				continue
 			}
 			msg := ev.Message
-			if msg.Chat == nil || msg.Chat.ID != t.relayedChannel || msg.From.ID == t.BotUserID {
+			if msg.Chat == nil || msg.Chat.ID != t.relayedChannel || msg.From.ID == t.botUserID {
 				continue
 			}
-			t.Inbox <- &TelegramMessage{&ev}
+			t.Inbox <- &TelegramMessage{ev}
 		}
 	}()
 }
@@ -63,7 +69,7 @@ func (t *Telegram) WritePump() {
 			if err != nil {
 				log.Errorln("Telegram error converting message to telegram representation: ", err)
 			}
-			_, err = t.Send(msg)
+			_, err = t.bot.Send(msg)
 			if err != nil {
 				log.Errorln("Telegram error writing message: ", err)
 			}

@@ -16,7 +16,7 @@ func createSlackMessage(text string, authorID string, worksSpaceUsers ...slack.U
 	}
 
 	return SlackMessage{
-		MessageEvent: &slack.MessageEvent{Msg: slack.Msg{User: authorID, Text: text}},
+		MessageEvent: slack.MessageEvent{Msg: slack.Msg{User: authorID, Text: text}},
 		users:        users,
 	}
 }
@@ -30,7 +30,7 @@ func createSlackUser(ID string, realName string, nickname string) slack.User {
 // createTelegramMessage is a helper factory of telegram messages for the tests below
 func createTelegramMessage(text string, authorFirstName string, authorLastName string, authorUserName string) TelegramMessage {
 	return TelegramMessage{
-		&telegram.Update{
+		telegram.Update{
 			Message: &telegram.Message{
 				From: &telegram.User{
 					FirstName: authorFirstName,

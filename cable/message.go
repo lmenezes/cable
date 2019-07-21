@@ -18,7 +18,7 @@ type Message interface {
 // SlackMessage wraps a message event from slack and implements the Message
 // Interface
 type SlackMessage struct {
-	*s.MessageEvent
+	s.MessageEvent
 	users UserMap
 }
 
@@ -62,7 +62,7 @@ func (sm *SlackMessage) String() string {
 
 // TelegramMessage wraps a telegram update and implements the Message Interface
 type TelegramMessage struct {
-	*t.Update
+	t.Update
 }
 
 // ToSlack converts a received telegram message into a proper representation in
