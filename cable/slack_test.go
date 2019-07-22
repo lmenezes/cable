@@ -7,58 +7,6 @@ import (
 	"time"
 )
 
-type fakeSlackAPI struct {
-	rtmEvents chan slack.RTMEvent
-	sent      []slack.MsgOption
-	users     []slack.User
-}
-
-func (api *fakeSlackAPI) IncomingEvents() <-chan slack.RTMEvent {
-	return api.rtmEvents
-}
-
-func (api *fakeSlackAPI) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
-	for _, msg := range options {
-		api.sent = append(api.sent, msg)
-	}
-	return "", "", nil
-}
-
-func (api *fakeSlackAPI) GetUsers() ([]slack.User, error) {
-	return api.users, nil
-}
-
-const (
-	slackUserID       = "USER"
-	slackBotID        = "BOT"
-	slackChatID       = "CHANNEL"
-	unkownSlackChatID = "UNKOWN_CHANNEL"
-)
-
-func createSlackBotUpdate(relayedChannelID string, text string) slack.RTMEvent {
-	return slack.RTMEvent{
-		Data: &slack.MessageEvent{
-			Msg: slack.Msg{
-				Text:    text,
-				Channel: relayedChannelID,
-				BotID:   slackBotID,
-			},
-		},
-	}
-}
-
-func createSlackUserUpdate(relayedChannelID string, text string) slack.RTMEvent {
-	return slack.RTMEvent{
-		Data: &slack.MessageEvent{
-			Msg: slack.Msg{
-				User:    slackUserID,
-				Text:    text,
-				Channel: relayedChannelID,
-			},
-		},
-	}
-}
-
 func TestSlack_ReadPump(t *testing.T) {
 	updates := []slack.RTMEvent{
 		{}, // message not set, discarded

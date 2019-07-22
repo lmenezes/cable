@@ -7,61 +7,6 @@ import (
 	"time"
 )
 
-type fakeTelegramAPi struct {
-	updatesChannel telegram.UpdatesChannel
-	sent           []telegram.Chattable
-}
-
-func (api *fakeTelegramAPi) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
-	return api.updatesChannel, nil
-}
-
-func (api *fakeTelegramAPi) Send(c telegram.Chattable) (telegram.Message, error) {
-	api.sent = append(api.sent, c)
-	return telegram.Message{}, nil
-}
-
-const (
-	telegramBotID = iota
-	telegramUserID
-	telegramChatID
-	unkownTelegramChatID
-)
-
-// createUpdate creates a message update as if it was written in the relayChannel,
-// by a user with the given UserID, and with the given text
-func createTelegramBotUpdate(relayedChannelID int64, text string) telegram.Update {
-	return telegram.Update{
-		Message: &telegram.Message{
-			Text: text,
-			Chat: &telegram.Chat{
-				ID: relayedChannelID,
-			},
-			From: &telegram.User{
-				ID:       telegramBotID,
-				UserName: "CableBot",
-			},
-		},
-	}
-}
-
-// createUpdate creates a message update as if it was written in the relayChannel,
-// by a user with the given UserID, and with the given text
-func createTelegramUserUpdate(relayedChannel int64, text string) telegram.Update {
-	return telegram.Update{
-		Message: &telegram.Message{
-			Text: text,
-			Chat: &telegram.Chat{
-				ID: relayedChannel,
-			},
-			From: &telegram.User{
-				ID:       telegramUserID,
-				UserName: "freshprince",
-			},
-		},
-	}
-}
-
 func TestTelegram_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
 		{}, // message not set, discarded
@@ -78,7 +23,7 @@ func TestTelegram_ReadPump(t *testing.T) {
 	fakeTelegram := &Telegram{
 		relayedChannelID: telegramChatID,
 		botUserID:        telegramBotID,
-		bot:              &fakeTelegramAPi{updatesChannel: updatesCh},
+		client:           &fakeTelegramAPi{updatesChannel: updatesCh},
 		Pump:             NewPump(),
 	}
 
@@ -113,12 +58,12 @@ WAIT:
 }
 
 func TestTelegram_WritePump(t *testing.T) {
-	bot := &fakeTelegramAPi{}
+	client := &fakeTelegramAPi{}
 
 	fakeTelegram := &Telegram{
 		relayedChannelID: telegramChatID,
 		botUserID:        telegramBotID,
-		bot:              bot,
+		client:           client,
 		Pump:             NewPump(),
 	}
 
@@ -144,7 +89,7 @@ WAIT:
 		}
 	}
 
-	Equal(t, 2, len(bot.sent))
-	Equal(t, "*Stranger:* Sup Jay!", bot.sent[0].(telegram.MessageConfig).Text)
-	Equal(t, "*Stranger:* 👏  Psss!", bot.sent[1].(telegram.MessageConfig).Text)
+	Equal(t, 2, len(client.sent))
+	Equal(t, "*Stranger:* Sup Jay!", client.sent[0].(telegram.MessageConfig).Text)
+	Equal(t, "*Stranger:* 👏  Psss!", client.sent[1].(telegram.MessageConfig).Text)
 }
