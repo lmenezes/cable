@@ -17,22 +17,35 @@ type Pumper interface {
 type ReadPumper interface {
 	// GoRead spawns a new goroutine to read messages and feed them into
 	// inbox
+	// TODO: rename GoRead -> ReadPump
 	GoRead()
 	// StopRead stops the read goroutine
 	StopRead()
 	// Inbox returns a channel containing the messages read by the ReadPumper
 	Inbox() chan Update
+	// NextEvent returns the next event to read from the read pump
+	// TODO: rename NextUpdate -> Read
+	NextEvent() Update
+	// ToInboxUpdate knows how to convert anything being read to an Update
+	ToInboxUpdate(interface{}) (Update, error)
 }
 
 // WritePumper is the interface implemented by Write pumpers.
 // Write pumpers read events fed into the outbox and write them somewhere else
 type WritePumper interface {
 	// GoRead spawns a new goroutine to write messages arriving at the outbox
+	// TODO: rename GoWrite -> WritePump
 	GoWrite()
 	// StopWrite stops the write goroutine
 	StopWrite()
 	// Outbox returns a channel of messages, which will be processed by GoWrite
 	Outbox() chan Update
+	// FromOutboxUpdate knows how to convert anything arriving at the outbox, to
+	// something that can be sent.
+	FromOutboxUpdate(Update) (interface{}, error)
+	// Send sends the converted update arriving at the outbox
+	// TODO: rename Send -> Write
+	Send(update interface{}) error
 }
 
 // Pump is a struct that describes an entity with an inbox and
@@ -43,11 +56,31 @@ type Pump struct {
 	ReadStopper  chan interface{}
 	OutboxCh     chan Update
 	WriteStopper chan interface{}
+	pumper       Pumper
 }
 
-// Inbox returns the inbox channel of the pump
-func (p *Pump) Inbox() chan Update {
-	return p.InboxCh
+// GoRead makes telegram listen for messages in a different goroutine.
+// Those messages will be pushed to the InboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding ReadStopper synchronization channel
+// which can be done by calling StopRead()
+func (p *Pump) GoRead() {
+	go func() {
+		for {
+			select {
+			case <-p.ReadStopper:
+				return
+			default:
+				ev := p.pumper.NextEvent()
+				update, err := p.pumper.ToInboxUpdate(ev)
+				if err != nil {
+					log.Debugf("Update from inbox discarded: %s", err)
+				} else {
+					p.Inbox() <- update
+				}
+			}
+		}
+	}()
 }
 
 // StopRead writes to the ReadStopper synchronization channel, thus indicating
@@ -56,9 +89,34 @@ func (p *Pump) StopRead() {
 	p.ReadStopper <- true
 }
 
-// Outbox returns the outbox channel of the pump
-func (p *Pump) Outbox() chan Update {
-	return p.OutboxCh
+// Inbox returns the inbox channel of the pump
+func (p *Pump) Inbox() chan Update {
+	return p.InboxCh
+}
+
+// GoWrite spawns a goroutine that takes care of delivering to telegram the
+// messages arriving at the OutboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding WriteStopper synchronization channel
+// which can be done by calling StopWrite()
+func (p *Pump) GoWrite() {
+	go func() {
+		for {
+			select {
+			case ou := <-p.Outbox():
+				update, err := p.pumper.FromOutboxUpdate(ou)
+				if err != nil {
+					log.Debugf("Update from inbox discarded: %s", err)
+				}
+				err = p.pumper.Send(update)
+				if err != nil {
+					log.Errorln("Error sending message: ", err)
+				}
+			case <-p.WriteStopper:
+				return
+			}
+		}
+	}()
 }
 
 // StopWrite writes to the WriteStopper synchronization channel, thus indicating
@@ -67,16 +125,24 @@ func (p *Pump) StopWrite() {
 	p.WriteStopper <- true
 }
 
+// Outbox returns the outbox channel of the pump
+func (p *Pump) Outbox() chan Update {
+	return p.OutboxCh
+}
+
 // NewPump returns the address of a new value of the Pump struct with
 // InboxCh and OutboxCh as buffered channels of size DefaultBufferSize
-func NewPump() *Pump {
+func NewPump(pumper Pumper) *Pump {
 	return &Pump{
 		InboxCh:      make(chan Update, DefaultBufferSize),
 		ReadStopper:  make(chan interface{}),
 		OutboxCh:     make(chan Update, DefaultBufferSize),
 		WriteStopper: make(chan interface{}),
+		pumper:       pumper,
 	}
 }
+
+/* Bidirectional pump connection */
 
 // BidirectionalPumpConnection defines a connection between two
 // pumpers such as the messages arriving at the inbox of one of them

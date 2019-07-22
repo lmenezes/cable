@@ -7,6 +7,7 @@ import (
 	"github.com/miguelff/cable/cable"
 	log "github.com/sirupsen/logrus"
 	"strings"
+	"sync"
 )
 
 const (
@@ -25,7 +26,12 @@ type API interface {
 	Send(c telegram.Chattable) (telegram.Message, error)
 }
 
-/* Section: Telegram type implementing GoRead and GoWrite */
+/*
+
+	Section: Telegram type embedding cable.Pump and thus implementing part of the
+	Pumper interface implicitly.
+
+*/
 
 // Telegram adapts the Telegram API creating a Pump of messages
 type Telegram struct {
@@ -40,6 +46,10 @@ type Telegram struct {
 	// botUserID is the id of the telegram app installed, which is used to
 	// discard messages looped back by the own bot
 	botUserID int
+	// the channel where updates will arrive to
+	updatesCh telegram.UpdatesChannel
+	// updatesChMutex mutex to synchronize access to updatesCh
+	updatesChMutex sync.Mutex
 }
 
 // NewTelegram returns the address of a new value of Telegram
@@ -49,44 +59,33 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 		log.Fatalln(err)
 	}
 	bot.Debug = debug
-	return &Telegram{
-		Pump:          cable.NewPump(),
+
+	t := &Telegram{
 		client:        bot,
 		relayedChatID: relayedChannel,
 		botUserID:     BotUserID,
 	}
+	cable.NewPump(t)
+	return t
 }
 
-// GoRead makes telegram listen for messages in a different goroutine.
-// Those messages will be pushed to the InboxCh of the Pump.
-//
-// The goroutine can be stopped by feeding ReadStopper synchronization channel
-// which can be done by calling StopRead() - a method coming from Pump and
-// which is accessed directly through the Telegram value.
-func (t *Telegram) GoRead() {
-	u := telegram.NewUpdate(0)
-	u.Timeout = readTimeoutSecs
+/* Pumper interface */
 
-	updates, err := t.client.GetUpdatesChan(u)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	go func() {
-		for {
-			select {
-			case ev := <-updates:
-				update, err := t.ToInboxUpdate(ev)
-				if err != nil {
-					log.Debugf("Update from inbox discarded: %s", err)
-				} else {
-					t.Inbox() <- update
-				}
-			case <-t.ReadStopper:
-				return
-			}
+// NextEvent blocks until it reads something from the telegram api
+func (t *Telegram) NextEvent() cable.Update {
+	t.updatesChMutex.Lock()
+	if t.updatesCh == nil {
+		// lazily initialize the channel
+		u := telegram.NewUpdate(0)
+		u.Timeout = readTimeoutSecs
+		ch, err := t.client.GetUpdatesChan(u)
+		if err != nil {
+			log.Panic(err)
 		}
-	}()
+		t.updatesCh = ch
+	}
+	t.updatesChMutex.Unlock()
+	return <-t.updatesCh
 }
 
 // ToInboxUpdate converts any event received in the read pump to a cable update
@@ -98,6 +97,25 @@ func (t *Telegram) ToInboxUpdate(update interface{}) (cable.Update, error) {
 	}
 	return nil, fmt.Errorf("ignoring unknown update type %s", update)
 }
+
+// FromOutboxUpdate converts the given Update into a telegram.Chattable message, which
+// this pumper know how to send over the write
+func (t *Telegram) FromOutboxUpdate(update cable.Update) (interface{}, error) {
+	switch ir := update.(type) {
+	case cable.Message:
+		return t.fromOutboxMessage(ir), nil
+	default:
+		return nil, fmt.Errorf("cannot convert update to telegram: %s ", update)
+	}
+}
+
+// Send sends a telegram update
+func (t *Telegram) Send(update interface{}) error {
+	_, err := t.client.Send(update.(telegram.Chattable))
+	return err
+}
+
+/* Private methods */
 
 func (t *Telegram) toInboxMessage(msg *telegram.Message) (cable.Update, error) {
 	if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
@@ -120,49 +138,6 @@ func (t *Telegram) toInboxMessage(msg *telegram.Message) (cable.Update, error) {
 		},
 		Contents: &cable.Contents{Raw: msg.Text},
 	}, nil
-}
-
-// GoWrite spawns a goroutine that takes care of delivering to telegram the
-// messages arriving at the OutboxCh of the Pump.
-//
-// The goroutine can be stopped by feeding WriteStopper synchronization channel
-// which can be done by calling StopWrite() - a method coming from Pump and
-// which is accessed directly through the Telegram value.
-func (t *Telegram) GoWrite() {
-	go func() {
-		for {
-			select {
-			case ou := <-t.Outbox():
-				update, err := t.FromOutboxUpdate(ou)
-				if err != nil {
-					log.Debugf("Update from inbox discarded: %s", err)
-				}
-				err = t.Send(update)
-				if err != nil {
-					log.Errorln("Error sending message: ", err)
-				}
-			case <-t.WriteStopper:
-				return
-			}
-		}
-	}()
-}
-
-// Send sends a telegram update
-func (t *Telegram) Send(update interface{}) error {
-	_, err := t.client.Send(update.(telegram.Chattable))
-	return err
-}
-
-// FromOutboxUpdate converts the given Update into a telegram.Chattable message, which
-// this pumper know how to send over the write
-func (t *Telegram) FromOutboxUpdate(update cable.Update) (interface{}, error) {
-	switch ir := update.(type) {
-	case cable.Message:
-		return t.fromOutboxMessage(ir), nil
-	default:
-		return nil, fmt.Errorf("cannot convert update to telegram: %s ", update)
-	}
 }
 
 func (t *Telegram) fromOutboxMessage(m cable.Message) telegram.Chattable {

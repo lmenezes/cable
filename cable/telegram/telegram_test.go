@@ -26,8 +26,8 @@ func TestTelegram_GoRead(t *testing.T) {
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        &fakeTelegramAPI{updatesChannel: updatesCh},
-		Pump:          cable.NewPump(),
 	}
+	fake.Pump = cable.NewPump(fake)
 
 	fake.GoRead()
 
@@ -49,7 +49,7 @@ WAIT:
 		}
 	}
 
-	fake.StopRead()
+	//fake.StopRead()
 
 	var inbox []cable.Update
 	for message := range fake.Inbox() {
@@ -73,8 +73,8 @@ func TestTelegram_GoWrite(t *testing.T) {
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        client,
-		Pump:          cable.NewPump(),
 	}
+	fake.Pump = cable.NewPump(fake)
 
 	fake.Outbox() <- cable.Message{
 		Contents: &cable.Contents{

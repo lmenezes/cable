@@ -34,8 +34,8 @@ func TestSlack_GoRead(t *testing.T) {
 			rtmEvents: updatesCh,
 			users:     userMap,
 		},
-		Pump: cable.NewPump(),
 	}
+	fake.Pump = cable.NewPump(fake)
 
 	fake.GoRead()
 
@@ -85,8 +85,8 @@ func TestSlack_GoWrite(t *testing.T) {
 		relayedChannelID: slackChannelID,
 		botUserID:        slackBotID,
 		client:           client,
-		Pump:             cable.NewPump(),
 	}
+	fake.Pump = cable.NewPump(fake)
 
 	fake.Outbox() <- cable.Message{
 		Contents: &cable.Contents{

@@ -120,12 +120,13 @@ type Slack struct {
 
 // NewSlack returns the address of a new value of Slack
 func NewSlack(token string, relayedChannel string, botUserID string) *Slack {
-	return &Slack{
-		Pump:             cable.NewPump(),
+	s := &Slack{
 		client:           &APIAdapter{Client: slack.New(token)},
 		relayedChannelID: relayedChannel,
 		botUserID:        botUserID,
 	}
+	s.Pump = cable.NewPump(s)
+	return s
 }
 
 // GetIdentities returns the user information from slack and caches it locally
@@ -134,28 +135,11 @@ func (s *Slack) GetIdentities() UserMap {
 	return s.client.GetUsers()
 }
 
-// GoRead makes slack listening for messages in a different goroutine.
-// Those messages will be pushed to the InboxCh of the Pump.
-//
-// The goroutine can be stopped by feeding ReadStopper synchronization channel
-// which can be done by calling StopRead() - a method coming from Pump and
-// which is accessed directly through the Slack value.
-func (s *Slack) GoRead() {
-	go func() {
-		for {
-			select {
-			case msg := <-s.client.IncomingEvents():
-				update, err := s.ToInboxUpdate(msg)
-				if err != nil {
-					log.Debugf("Update from inbox discarded: %s", err)
-				} else {
-					s.Inbox() <- update
-				}
-			case <-s.ReadStopper:
-				return
-			}
-		}
-	}()
+/* Pumper interface */
+
+// NextEvent blocks until it reads something from the slack api
+func (s *Slack) NextEvent() cable.Update {
+	return <-s.client.IncomingEvents()
 }
 
 // ToInboxUpdate converts any event received in the read pump to a cable update
@@ -168,6 +152,25 @@ func (s *Slack) ToInboxUpdate(update interface{}) (cable.Update, error) {
 		return nil, fmt.Errorf("ignoring unknown update type %s", update)
 	}
 }
+
+// FromOutboxUpdate converts the given Update into a []slack.MsgOption message, which
+// this pumper know how to send over the write
+func (s *Slack) FromOutboxUpdate(update cable.Update) (interface{}, error) {
+	switch ir := update.(type) {
+	case cable.Message:
+		return s.fromOutboxMessage(ir), nil
+	default:
+		return nil, fmt.Errorf("Cannot convert update to slack %s", update)
+	}
+}
+
+// Send sends a slack update
+func (s *Slack) Send(update interface{}) error {
+	err := s.client.PostMessage(s.relayedChannelID, update.([]slack.MsgOption)...)
+	return err
+}
+
+/* Private methods */
 
 func (s *Slack) toInboxMessage(msg *slack.MessageEvent) (cable.Update, error) {
 	if msg.Channel != s.relayedChannelID || msg.BotID == s.botUserID {
@@ -192,49 +195,6 @@ func (s *Slack) toInboxMessage(msg *slack.MessageEvent) (cable.Update, error) {
 		Author:   &author,
 		Contents: &cable.Contents{msg.Text},
 	}, nil
-}
-
-// GoWrite spawns a goroutine that takes care of delivering to slack the
-// messages arriving at the OutboxCh of the Pump.
-//
-// The goroutine can be stopped by feeding WriteStopper synchronization channel
-// which can be done by calling StopWrite() - a method coming from Pump and
-// which is accessed directly through the Slack value.
-func (s *Slack) GoWrite() {
-	go func() {
-		for {
-			select {
-			case ou := <-s.Outbox():
-				update, err := s.FromOutboxUpdate(ou)
-				if err != nil {
-					log.Infof("Update from inbox discarded: %s", err)
-				}
-				err = s.Send(update)
-				if err != nil {
-					log.Errorln("Error sending message: ", err)
-				}
-			case <-s.WriteStopper:
-				return
-			}
-		}
-	}()
-}
-
-// Send sends a slack update
-func (s *Slack) Send(update interface{}) error {
-	err := s.client.PostMessage(s.relayedChannelID, update.([]slack.MsgOption)...)
-	return err
-}
-
-// FromOutboxUpdate converts the given Update into a []slack.MsgOption message, which
-// this pumper know how to send over the write
-func (s *Slack) FromOutboxUpdate(update cable.Update) (interface{}, error) {
-	switch ir := update.(type) {
-	case cable.Message:
-		return s.fromOutboxMessage(ir), nil
-	default:
-		return nil, fmt.Errorf("Cannot convert update to slack %s", update)
-	}
 }
 
 func (s *Slack) fromOutboxMessage(m cable.Message) []slack.MsgOption {

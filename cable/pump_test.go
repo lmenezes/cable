@@ -12,12 +12,17 @@ type fakePumper struct {
 }
 
 func newFakePumper() *fakePumper {
-	return &fakePumper{NewPump()}
+	fp := &fakePumper{}
+	fp.Pump = NewPump(fp)
+	return fp
 }
 
-func (*fakePumper) GoRead() {}
-
-func (*fakePumper) GoWrite() {}
+func (*fakePumper) GoRead()                                      {}
+func (*fakePumper) GoWrite()                                     {}
+func (*fakePumper) NextEvent() Update                            { panic("Not implemented") }
+func (*fakePumper) ToInboxUpdate(interface{}) (Update, error)    { panic("Not implemented") }
+func (*fakePumper) FromOutboxUpdate(Update) (interface{}, error) { panic("Not implemented") }
+func (*fakePumper) Send(update interface{}) error                { panic("Not implemented") }
 
 /* fake Update */
 
