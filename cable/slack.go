@@ -47,7 +47,7 @@ func (adapter *slackAPIAdapter) PostMessage(channelID string, options ...slack.M
 }
 
 func (adapter *slackAPIAdapter) GetUsers() (UserMap, error) {
-	users, err := adapter.GetUsers()
+	users, err := adapter.client.GetUsers()
 	if err != nil {
 		log.Errorln("Cannot get user identities", err)
 	}
