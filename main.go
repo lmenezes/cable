@@ -20,7 +20,7 @@ func main() {
 
 	config := cable.NewConfig()
 	log.Debugf("Config %v", config)
-	cable.Setup(cable.NewConfig())
+	cable.Setup(config)
 
 	http.HandleFunc("/_health", ok)
 	http.HandleFunc("/", ok)
