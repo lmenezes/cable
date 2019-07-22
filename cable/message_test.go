@@ -1,66 +1,34 @@
 package cable
 
 import (
-	"encoding/json"
-	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/nlopes/slack"
 	. "github.com/stretchr/testify/assert"
 	"testing"
 )
 
-// createSlackMessage is a helper factory of slack messages for the tests below
-func createSlackMessage(text string, authorID string, worksSpaceUsers ...slack.User) SlackMessage {
-	users := make(UserMap)
-	for _, u := range worksSpaceUsers {
-		users[u.ID] = u
-	}
-
-	return SlackMessage{
-		MessageEvent: &slack.MessageEvent{Msg: slack.Msg{User: authorID, Text: text}},
-		users:        users,
-	}
-}
-
-// createSlackUser is a helper factory of slack users for the tests below
-func createSlackUser(ID string, realName string, nickname string) slack.User {
-	return slack.User{ID: ID, RealName: realName, Name: nickname}
-}
-
-// createTelegramMessage is a helper factory of telegram messages for the tests below
-func createTelegramMessage(text string, authorFirstName string, authorLastName string, authorUserName string) TelegramMessage {
-	return TelegramMessage{
-		telegram.Update{
-			Message: &telegram.Message{
-				From: &telegram.User{
-					FirstName: authorFirstName,
-					LastName:  authorLastName,
-					UserName:  authorUserName,
-				},
-				Text: text,
-			},
-		},
-	}
-}
-
 func TestSlackMessage_String_KnownUser(t *testing.T) {
-	msg := createSlackMessage("Sup Jay!", "0001", createSlackUser("0001", "Will Smith", "freshprince"))
+	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	msg := createSlackMessage("Sup Jay!", slackUserID, user)
 	Equal(t, "freshprince: Sup Jay!", msg.String())
 }
 
 func TestSlackMessage_String_Stranger(t *testing.T) {
-	msg := createSlackMessage("Sup Jay!", "STRGRID", createSlackUser("0001", "Will Smith", "freshprince"))
+	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	msg := createSlackMessage("Sup Jay!", unknownSlackUSerID, user)
 	Equal(t, "Stranger: Sup Jay!", msg.String())
 }
 
 func TestSlackMessage_ToSlack(t *testing.T) {
-	msg := createSlackMessage("Sup Jay!", "0001", createSlackUser("0001", "Will Smith", "freshprince"))
+	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	msg := createSlackMessage("Sup Jay!", slackUserID, user)
 	_, e := msg.ToSlack()
 	Error(t, e)
 }
 
 func TestSlackMessage_ToTelegram_KnownUser(t *testing.T) {
-	msg := createSlackMessage("Sup Jay! :boom:", "0001", createSlackUser("0001", "Will Smith", "freshprince"))
+	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	msg := createSlackMessage("Sup Jay! :boom:", slackUserID, user)
 	telegramChatID := int64(123)
 
 	expected := telegram.MessageConfig{
@@ -78,7 +46,8 @@ func TestSlackMessage_ToTelegram_KnownUser(t *testing.T) {
 }
 
 func TestSlackMessage_ToTelegram_Stranger(t *testing.T) {
-	msg := createSlackMessage("Sup Jay! :boom:", "STRGRID", createSlackUser("0001", "Will Smith", "freshprince"))
+	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	msg := createSlackMessage("Sup Jay! :boom:", "STRGRID", user)
 	telegramChatID := int64(123)
 
 	expected := telegram.MessageConfig{
@@ -101,24 +70,11 @@ func TestTelegramMessage_String(t *testing.T) {
 }
 
 func TestTelegramMessage_ToSlack(t *testing.T) {
-	type slackJSONMessage struct {
-		Fallback   string `json:"fallback"`
-		AuthorName string `json:"author_name"`
-		Text       string `json:"text"`
-	}
-
 	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
-	slackMessage, _ := msg.ToSlack()
+	slackMessages, _ := msg.ToSlack()
 
-	// What slack can send is not really a struct but a closure that when called given a context
-	// returns the HTML payload to send. slack.UnsafeApplyMsgOptions let us debug this.
-	_, configuration, _ := slack.UnsafeApplyMsgOptions("SAMPLE_TOKEN", "SAMPLE_CHANNEL", slackMessage...)
-	serializedAttachments := configuration["attachments"][0]
-	jsonMessages := []slackJSONMessage{}
-	if err := json.Unmarshal([]byte(serializedAttachments), &jsonMessages); err != nil {
-		Fail(t, fmt.Sprintf("There was a problem unmarshalling json, %s", err))
-	}
-	actual := jsonMessages[0]
+	jsonMessage := asSlackJSONMessage(slackMessages[0])
+	actual := jsonMessage
 
 	expected := slackJSONMessage{
 		Fallback:   "Sup will! :punch: :thumbs_up:",
