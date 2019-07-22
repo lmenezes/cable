@@ -97,3 +97,30 @@ WAIT:
 	Equal(t, "*Stranger:* Sup Jay!", client.sent[0].(telegram.MessageConfig).Text)
 	Equal(t, "*Stranger:* 👏  Psss!", client.sent[1].(telegram.MessageConfig).Text)
 }
+
+func TestTelegramMessage_String(t *testing.T) {
+	msg := createTelegramMessage("Sup will! pss", "Jeffrey", "Townes", "Jazz")
+	Equal(t, "Jazz: Sup will! pss", msg.String())
+}
+
+func TestTelegramMessage_ToSlack(t *testing.T) {
+	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
+	slackMessages, _ := msg.ToSlack()
+
+	jsonMessage := asSlackJSONMessage(slackMessages[0])
+	actual := jsonMessage
+
+	expected := slackJSONMessage{
+		Fallback:   "Sup will! :punch: :thumbs_up:",
+		AuthorName: "Jeffrey Townes (Jazz)",
+		Text:       "Sup will! :punch: :thumbs_up:",
+	}
+	Equal(t, expected, actual)
+}
+
+func TestTelegramMessage_ToTelegram(t *testing.T) {
+	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
+	telegramChatID := int64(123)
+	_, e := msg.ToTelegram(telegramChatID)
+	Error(t, e)
+}

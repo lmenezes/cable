@@ -1,8 +1,11 @@
 package cable
 
 import (
+	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/nlopes/slack"
 	log "github.com/sirupsen/logrus"
+	"strings"
 )
 
 const (
@@ -102,4 +105,53 @@ func (t *Telegram) GoWrite() {
 			}
 		}
 	}()
+}
+
+/* Telegram message */
+
+// TelegramMessage wraps a telegram update and implements the Message Interface
+type TelegramMessage struct {
+	telegram.Update
+}
+
+// ToSlack converts a received telegram message into a proper representation in
+// slack
+func (tm TelegramMessage) ToSlack() ([]slack.MsgOption, error) {
+	var authorName []string
+
+	if firstName := tm.Update.Message.From.FirstName; firstName != "" {
+		authorName = append(authorName, firstName)
+	}
+
+	if lastName := tm.Update.Message.From.LastName; lastName != "" {
+		authorName = append(authorName, lastName)
+	}
+
+	if userName := tm.Update.Message.From.UserName; userName != "" {
+		if len(authorName) > 0 {
+			authorName = append(authorName, fmt.Sprintf("(%s)", userName))
+		} else {
+			authorName = append(authorName, userName)
+		}
+	}
+
+	attachment := slack.Attachment{
+		Fallback:   tm.Message.Text,
+		AuthorName: strings.Join(authorName, " "),
+		Text:       tm.Message.Text,
+	}
+
+	return []slack.MsgOption{slack.MsgOptionAttachments(attachment)}, nil
+}
+
+// ToTelegram is a no-op that returns an error, as we dont want to re-send
+// messages from telegram to telegram at the moment
+func (tm TelegramMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
+	return telegram.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
+}
+
+// String returns a human readable representation of a telegram message for
+// debugging purposes
+func (tm TelegramMessage) String() string {
+	return fmt.Sprintf("%s: %s", tm.Update.Message.From.UserName, tm.Message.Text)
 }

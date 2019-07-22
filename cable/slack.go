@@ -1,6 +1,9 @@
 package cable
 
 import (
+	"fmt"
+	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kyokomi/emoji"
 	"github.com/nlopes/slack"
 	log "github.com/sirupsen/logrus"
 	"sync"
@@ -158,4 +161,51 @@ func (s *Slack) GoWrite() {
 			}
 		}
 	}()
+}
+
+/* Section: Slack message */
+
+// SlackMessage wraps a message event from slack and implements the Message
+// Interface
+type SlackMessage struct {
+	*slack.MessageEvent
+	users UserMap
+}
+
+// ToSlack is a no-op that returns an error, as we don't want to re-send
+// messages from slack to slack at the moment.
+func (sm SlackMessage) ToSlack() ([]slack.MsgOption, error) {
+	return nil, fmt.Errorf("Messages received in slack are not sent to slack")
+}
+
+// ToTelegram converts a received slack message into a proper representation in
+// telegram
+func (sm SlackMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
+	var text string
+
+	if user, ok := sm.users[sm.User]; ok {
+		text = fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
+	} else {
+		text = fmt.Sprintf("*Stranger:* %s", sm.Text)
+	}
+
+	return telegram.MessageConfig{
+		BaseChat: telegram.BaseChat{
+			ChatID:           telegramChatID,
+			ReplyToMessageID: 0,
+		},
+		Text:                  emoji.Sprint(text),
+		DisableWebPagePreview: false,
+		ParseMode:             telegram.ModeMarkdown,
+	}, nil
+}
+
+// String returns a human readable representation of a slack message for
+// debugging purposes
+func (sm SlackMessage) String() string {
+	if user, ok := sm.users[sm.User]; ok {
+		return fmt.Sprintf("%s: %s", user.Name, sm.Text)
+
+	}
+	return fmt.Sprintf("Stranger: %s", sm.Text)
 }
