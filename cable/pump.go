@@ -25,7 +25,7 @@ type ReadPumper interface {
 }
 
 // WritePumper is the interface implemented by Write pumpers.
-// Write pumpers read events fed into the outbox and writes them somewhere else
+// Write pumpers read events fed into the outbox and write them somewhere else
 type WritePumper interface {
 	// GoRead spawns a new goroutine to write messages arriving at the outbox
 	GoWrite()
@@ -35,8 +35,9 @@ type WritePumper interface {
 	Outbox() chan Message
 }
 
-// Pump is a struct that describes am entity with an inbox and
-// and outbox channel of Messages
+// Pump is a struct that describes an entity with an inbox and
+// and outbox channel of Messages, and their companion stop channels
+// to let the pump know when to stop reading or writing
 type Pump struct {
 	InboxCh      chan Message
 	ReadStopper  chan interface{}
@@ -44,22 +45,24 @@ type Pump struct {
 	WriteStopper chan interface{}
 }
 
-// Inbox returns the InboxCh of Pump
+// Inbox returns the inbox channel of the pump
 func (p *Pump) Inbox() chan Message {
 	return p.InboxCh
 }
 
-// StopRead writes to the ReadStopper synchronization channel
+// StopRead writes to the ReadStopper synchronization channel, thus indicating
+// the pumper to stop reading
 func (p *Pump) StopRead() {
 	p.ReadStopper <- true
 }
 
-// Outbox returns the OutboxCh of Pump
+// Outbox returns the outbox channel of the pump
 func (p *Pump) Outbox() chan Message {
 	return p.OutboxCh
 }
 
-// StopWrite writes to the WriteStopper synchronization channel
+// StopWrite writes to the WriteStopper synchronization channel, thus indicating
+// the pumper to stop writing
 func (p *Pump) StopWrite() {
 	p.WriteStopper <- true
 }
@@ -94,7 +97,8 @@ func NewBidirectionalPumpConnection(left Pumper, right Pumper) *BidirectionalPum
 	}
 }
 
-// Go spawns a goroutine processing the bidirectional connection
+// Go spawns a goroutine for routing messages from each of the edges to the
+// other
 func (c BidirectionalPumpConnection) Go() {
 	go func() {
 		c.Left.GoRead()
@@ -122,7 +126,7 @@ func (c BidirectionalPumpConnection) Go() {
 
 }
 
-// Stop stops the processing of the bidirectional connection
+// Stop stops the gorouting started by Go
 func (c BidirectionalPumpConnection) Stop() {
 	c.stop <- true
 }
