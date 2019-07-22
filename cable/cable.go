@@ -15,18 +15,6 @@ func Setup(config *Config) {
 	telegram.ReadPump()
 	telegram.WritePump()
 
-	go func() {
-		for {
-			select {
-			case m := <-slack.Inbox:
-				log.Debugln("[SLACK]", m)
-				telegram.Outbox <- m
-			case m := <-telegram.Inbox:
-				log.Debugln("[TELEGRAM]", m)
-				slack.Outbox <- m
-			}
-		}
-	}()
-
+	NewBidirectionalPumpConnection(slack.Pump, telegram.Pump).Go()
 	log.Infoln("Slack and Telegram are now connected.")
 }

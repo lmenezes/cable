@@ -2,6 +2,7 @@ package cable
 
 import (
 	"encoding/json"
+	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/nlopes/slack"
 )
@@ -20,6 +21,24 @@ const (
 	telegramChatID
 	unknownTelegramChatID
 )
+
+/* fake Message */
+
+type fakeMessage struct {
+	text string
+}
+
+func (fm fakeMessage) ToSlack() ([]slack.MsgOption, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+func (fm fakeMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
+	return telegram.MessageConfig{}, fmt.Errorf("Not implemented")
+}
+
+func (fm fakeMessage) String() string {
+	return fm.text
+}
 
 /* fake Slack API */
 
@@ -46,16 +65,16 @@ func (api *fakeSlackAPI) GetUsers() ([]slack.User, error) {
 
 /* fake Telegram API */
 
-type fakeTelegramAPi struct {
+type fakeTelegramAPI struct {
 	updatesChannel telegram.UpdatesChannel
 	sent           []telegram.Chattable
 }
 
-func (api *fakeTelegramAPi) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
+func (api *fakeTelegramAPI) GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error) {
 	return api.updatesChannel, nil
 }
 
-func (api *fakeTelegramAPi) Send(c telegram.Chattable) (telegram.Message, error) {
+func (api *fakeTelegramAPI) Send(c telegram.Chattable) (telegram.Message, error) {
 	api.sent = append(api.sent, c)
 	return telegram.Message{}, nil
 }

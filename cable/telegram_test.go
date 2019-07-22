@@ -23,7 +23,7 @@ func TestTelegram_ReadPump(t *testing.T) {
 	fakeTelegram := &Telegram{
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
-		client:        &fakeTelegramAPi{updatesChannel: updatesCh},
+		client:        &fakeTelegramAPI{updatesChannel: updatesCh},
 		Pump:          NewPump(),
 	}
 
@@ -58,7 +58,7 @@ WAIT:
 }
 
 func TestTelegram_WritePump(t *testing.T) {
-	client := &fakeTelegramAPi{}
+	client := &fakeTelegramAPI{}
 
 	fakeTelegram := &Telegram{
 		relayedChatID: telegramChatID,
