@@ -3,8 +3,8 @@ package telegram
 import (
 	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/kyokomi/emoji"
 	"github.com/miguelff/cable/cable"
-	"github.com/nlopes/slack"
 	log "github.com/sirupsen/logrus"
 	"strings"
 )
@@ -76,19 +76,50 @@ func (t *Telegram) GoRead() {
 		for {
 			select {
 			case ev := <-updates:
-				if ev.Message == nil {
-					continue
+				update, err := t.ToInboxUpdate(ev)
+				if err != nil {
+					log.Debugf("Update from inbox discarded: %s", err)
+				} else {
+					t.Inbox() <- update
 				}
-				msg := ev.Message
-				if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
-					continue
-				}
-				t.Inbox() <- &Message{ev}
 			case <-t.ReadStopper:
 				return
 			}
 		}
 	}()
+}
+
+// ToInboxUpdate converts any event received in the read pump to a cable update
+// that can be fed into the inbox
+func (t *Telegram) ToInboxUpdate(update interface{}) (cable.Update, error) {
+	ev := update.(telegram.Update)
+	if ev.Message != nil {
+		return t.toInboxMessage(ev.Message)
+	}
+	return nil, fmt.Errorf("ignoring unknown update type %s", update)
+}
+
+func (t *Telegram) toInboxMessage(msg *telegram.Message) (cable.Update, error) {
+	if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
+		return nil, fmt.Errorf("ignoring message: %s", msg.Text)
+	}
+	var authorName []string
+
+	if firstName := msg.From.FirstName; firstName != "" {
+		authorName = append(authorName, firstName)
+	}
+
+	if lastName := msg.From.LastName; lastName != "" {
+		authorName = append(authorName, lastName)
+	}
+
+	return cable.Message{
+		Author: &cable.Author{
+			Name:  strings.Join(authorName, " "),
+			Alias: msg.From.UserName,
+		},
+		Contents: &cable.Contents{Raw: msg.Text},
+	}, nil
 }
 
 // GoWrite spawns a goroutine that takes care of delivering to telegram the
@@ -101,14 +132,14 @@ func (t *Telegram) GoWrite() {
 	go func() {
 		for {
 			select {
-			case m := <-t.Outbox():
-				msg, err := m.ToTelegram(t.relayedChatID)
+			case ou := <-t.Outbox():
+				update, err := t.FromOutboxUpdate(ou)
 				if err != nil {
-					log.Errorln("Telegram error converting message to telegram representation: ", err)
+					log.Debugf("Update from inbox discarded: %s", err)
 				}
-				_, err = t.client.Send(msg)
+				err = t.Send(update)
 				if err != nil {
-					log.Errorln("Telegram error writing message: ", err)
+					log.Errorln("Error sending message: ", err)
 				}
 			case <-t.WriteStopper:
 				return
@@ -117,51 +148,53 @@ func (t *Telegram) GoWrite() {
 	}()
 }
 
-/* Telegram message */
-
-// Message wraps a telegram update and implements the Message Interface
-type Message struct {
-	telegram.Update
+// Send sends a telegram update
+func (t *Telegram) Send(update interface{}) error {
+	_, err := t.client.Send(update.(telegram.Chattable))
+	return err
 }
 
-// ToSlack converts a received telegram message into a proper representation in
-// slack
-func (tm Message) ToSlack() ([]slack.MsgOption, error) {
-	var authorName []string
-
-	if firstName := tm.Update.Message.From.FirstName; firstName != "" {
-		authorName = append(authorName, firstName)
+// FromOutboxUpdate converts the given Update into a telegram.Chattable message, which
+// this pumper know how to send over the write
+func (t *Telegram) FromOutboxUpdate(update cable.Update) (interface{}, error) {
+	switch ir := update.(type) {
+	case cable.Message:
+		return t.fromOutboxMessage(ir), nil
+	default:
+		return nil, fmt.Errorf("cannot convert update to telegram: %s ", update)
 	}
+}
 
-	if lastName := tm.Update.Message.From.LastName; lastName != "" {
-		authorName = append(authorName, lastName)
-	}
+func (t *Telegram) fromOutboxMessage(m cable.Message) telegram.Chattable {
+	var contents string
+	var authorTokens []string
 
-	if userName := tm.Update.Message.From.UserName; userName != "" {
-		if len(authorName) > 0 {
-			authorName = append(authorName, fmt.Sprintf("(%s)", userName))
-		} else {
-			authorName = append(authorName, userName)
+	if author := m.Author; author != nil {
+		if author.Name != "" {
+			authorTokens = append(authorTokens, author.Name)
+		}
+		if author.Alias != "" {
+			if len(authorTokens) > 0 {
+				authorTokens = append(authorTokens, fmt.Sprintf("(%s)", author.Alias))
+			} else {
+				authorTokens = append(authorTokens, author.Alias)
+			}
 		}
 	}
 
-	attachment := slack.Attachment{
-		Fallback:   tm.Message.Text,
-		AuthorName: strings.Join(authorName, " "),
-		Text:       tm.Message.Text,
+	if len(authorTokens) > 0 {
+		contents = fmt.Sprintf("*%s:* %s", strings.Join(authorTokens, " "), m.Contents)
+	} else {
+		contents = m.Contents.String()
 	}
 
-	return []slack.MsgOption{slack.MsgOptionAttachments(attachment)}, nil
-}
-
-// ToTelegram is a no-op that returns an error as we dont want to re-send
-// messages from telegram to telegram at the moment
-func (tm Message) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
-	return telegram.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
-}
-
-// String returns a human readable representation of a telegram message for
-// debugging purposes
-func (tm Message) String() string {
-	return fmt.Sprintf("%s: %s", tm.Update.Message.From.UserName, tm.Message.Text)
+	return telegram.MessageConfig{
+		BaseChat: telegram.BaseChat{
+			ChatID:           t.relayedChatID,
+			ReplyToMessageID: 0,
+		},
+		Text:                  emoji.Sprint(contents),
+		DisableWebPagePreview: false,
+		ParseMode:             telegram.ModeMarkdown,
+	}
 }

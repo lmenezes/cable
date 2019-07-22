@@ -10,10 +10,11 @@ import (
 
 func TestTelegram_GoRead(t *testing.T) {
 	updates := []telegram.Update{
-		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                           // discarded, because written by the bot itself
-		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                          // selected
-		createTelegramUserUpdate(unknownTelegramChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
-		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),             // selected
+		createTelegramEdition(),
+		createTelegramBotMessage(telegramChatID, "Hey Hey!"),                           // discarded, because written by the bot itself
+		createTelegramUserMessage(telegramChatID, "Sup Jay!"),                          // selected
+		createTelegramUserMessage(unknownTelegramChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
+		createTelegramUserMessage(telegramChatID, "Uncle Phil, you here?"),             // selected
 		{}, // discarded: no message
 	}
 	updatesCh := make(chan telegram.Update, len(updates))
@@ -21,14 +22,14 @@ func TestTelegram_GoRead(t *testing.T) {
 		updatesCh <- update
 	}
 
-	fakeTelegram := &Telegram{
+	fake := &Telegram{
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        &fakeTelegramAPI{updatesChannel: updatesCh},
 		Pump:          cable.NewPump(),
 	}
 
-	fakeTelegram.GoRead()
+	fake.GoRead()
 
 	// wait for the pump to to process the channel up to 1 second, or timeout
 	timeout := time.NewTimer(1 * time.Second)
@@ -41,39 +42,59 @@ WAIT:
 			break WAIT
 		default:
 			if len(updatesCh) == 0 {
-				close(fakeTelegram.Inbox())
+				close(fake.Inbox())
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	fakeTelegram.StopRead()
+	fake.StopRead()
 
-	var inbox []cable.Message
-	for message := range fakeTelegram.Inbox() {
+	var inbox []cable.Update
+	for message := range fake.Inbox() {
 		inbox = append(inbox, message)
 	}
 
 	Equal(t, 2, len(inbox))
-	Equal(t, "freshprince: Sup Jay!", inbox[0].String())
-	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
+	first := inbox[0].(cable.Message)
+	Equal(t, "Sup Jay!", first.Contents.String())
+	Equal(t, "freshprince", first.Author.String())
+
+	second := inbox[1].(cable.Message)
+	Equal(t, "Uncle Phil, you here?", second.Contents.String())
+	Equal(t, "freshprince", second.Author.String())
 }
 
 func TestTelegram_GoWrite(t *testing.T) {
 	client := &fakeTelegramAPI{}
 
-	fakeTelegram := &Telegram{
+	fake := &Telegram{
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        client,
 		Pump:          cable.NewPump(),
 	}
 
-	fakeTelegram.Outbox() <- createSlackMessage("Sup Jay!", "WILL")
-	fakeTelegram.Outbox() <- createSlackMessage(":clap: Psss!", "JAZZ")
+	fake.Outbox() <- cable.Message{
+		Contents: &cable.Contents{
+			Raw: "Sup Jay!",
+		},
+		Author: &cable.Author{
+			Alias: "freshprince",
+			Name:  "Will Smith",
+		},
+	}
 
-	fakeTelegram.GoWrite()
+	fake.Outbox() <- cable.Message{
+		Contents: &cable.Contents{
+			Raw: ":clap: Psss!",
+		},
+		Author: &cable.Author{
+			Alias: "freshprince",
+		},
+	}
+	fake.GoWrite()
 
 	// wait for the pump to to process the channel up to 1 second, or timeout
 	timeout := time.NewTimer(1 * time.Second)
@@ -85,43 +106,19 @@ WAIT:
 			Fail(t, "timeout while processing the Read Pump")
 			break WAIT
 		default:
-			if len(fakeTelegram.Outbox()) == 0 {
+			if len(fake.Outbox()) == 0 {
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	fakeTelegram.StopWrite()
+	fake.StopWrite()
 
 	Equal(t, 2, len(client.sent))
-	Equal(t, "*Stranger:* Sup Jay!", client.sent[0].(telegram.MessageConfig).Text)
-	Equal(t, "*Stranger:* 👏  Psss!", client.sent[1].(telegram.MessageConfig).Text)
-}
+	first := client.sent[0].(telegram.MessageConfig)
+	Equal(t, "*Will Smith (freshprince):* Sup Jay!", first.Text)
 
-func TestTelegramMessage_String(t *testing.T) {
-	msg := createTelegramMessage("Sup will! pss", "Jeffrey", "Townes", "Jazz")
-	Equal(t, "Jazz: Sup will! pss", msg.String())
-}
-
-func TestTelegramMessage_ToSlack(t *testing.T) {
-	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
-	slackMessages, _ := msg.ToSlack()
-
-	jsonMessage := asSlackJSONMessage(slackMessages[0])
-	actual := jsonMessage
-
-	expected := slackJSONMessage{
-		Fallback:   "Sup will! :punch: :thumbs_up:",
-		AuthorName: "Jeffrey Townes (Jazz)",
-		Text:       "Sup will! :punch: :thumbs_up:",
-	}
-	Equal(t, expected, actual)
-}
-
-func TestTelegramMessage_ToTelegram(t *testing.T) {
-	msg := createTelegramMessage("Sup will! :punch: :thumbs_up:", "Jeffrey", "Townes", "Jazz")
-	telegramChatID := int64(123)
-	_, e := msg.ToTelegram(telegramChatID)
-	Error(t, e)
+	second := client.sent[1].(telegram.MessageConfig)
+	Equal(t, "*freshprince:* 👏  Psss!", second.Text)
 }

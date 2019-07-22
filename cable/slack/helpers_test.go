@@ -2,8 +2,6 @@ package slack
 
 import (
 	"encoding/json"
-	telegramAPI "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/miguelff/cable/cable/telegram"
 	slackAPI "github.com/nlopes/slack"
 )
 
@@ -29,9 +27,9 @@ func (api *fakeSlackAPI) IncomingEvents() <-chan slackAPI.RTMEvent {
 	return api.rtmEvents
 }
 
-func (api *fakeSlackAPI) PostMessage(channelID string, options ...slackAPI.MsgOption) (string, string, error) {
+func (api *fakeSlackAPI) PostMessage(channelID string, options ...slackAPI.MsgOption) error {
 	api.sent = append(api.sent, options...)
-	return "", "", nil
+	return nil
 }
 
 func (api *fakeSlackAPI) GetUsers() UserMap {
@@ -40,25 +38,9 @@ func (api *fakeSlackAPI) GetUsers() UserMap {
 
 /* factories */
 
-// createTelegramMessage is a factory of cable.Message for the tests below
-func createTelegramMessage(text string, authorFirstName string, authorLastName string, authorUserName string) telegram.Message {
-	return telegram.Message{
-		Update: telegramAPI.Update{
-			Message: &telegramAPI.Message{
-				From: &telegramAPI.User{
-					FirstName: authorFirstName,
-					LastName:  authorLastName,
-					UserName:  authorUserName,
-				},
-				Text: text,
-			},
-		},
-	}
-}
-
-// createSlackBotUpdate creates a slackAPI.RTM update (what slack reads from the
+// createSlackBotMessage creates a slackAPI.RTM update (what slack reads from the
 // API in the read pump) as if it was written by the slack bot itself.
-func createSlackBotUpdate(relayedChannelID string, text string) slackAPI.RTMEvent {
+func createSlackBotMessage(relayedChannelID string, text string) slackAPI.RTMEvent {
 	return slackAPI.RTMEvent{
 		Data: &slackAPI.MessageEvent{
 			Msg: slackAPI.Msg{
@@ -70,9 +52,9 @@ func createSlackBotUpdate(relayedChannelID string, text string) slackAPI.RTMEven
 	}
 }
 
-// createSlackUserUpdate creates a slackAPI.RTM update (what slack reads from the
+// createSlackUserMessage creates a slackAPI.RTM update (what slack reads from the
 // API in the read pump) as if it was written by a regular user.
-func createSlackUserUpdate(relayedChannelID string, text string) slackAPI.RTMEvent {
+func createSlackUserMessage(relayedChannelID string, slackUserID string, text string) slackAPI.RTMEvent {
 	return slackAPI.RTMEvent{
 		Data: &slackAPI.MessageEvent{
 			Msg: slackAPI.Msg{
@@ -84,16 +66,11 @@ func createSlackUserUpdate(relayedChannelID string, text string) slackAPI.RTMEve
 	}
 }
 
-// createSlackMessage is a factory of cable.Message for the tests below
-func createSlackMessage(text string, authorID string, worksSpaceUsers ...slackAPI.User) Message {
-	users := make(UserMap)
-	for _, u := range worksSpaceUsers {
-		users[u.ID] = u
-	}
-
-	return Message{
-		MessageEvent: &slackAPI.MessageEvent{Msg: slackAPI.Msg{User: authorID, Text: text}},
-		Users:        users,
+// createSlackUserMessage creates a slackAPI.RTM update representing a user
+// reaction
+func createSlackUserReaction() slackAPI.RTMEvent {
+	return slackAPI.RTMEvent{
+		Data: &slackAPI.ReactedItem{},
 	}
 }
 

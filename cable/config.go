@@ -2,7 +2,6 @@ package cable
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -42,7 +41,7 @@ func NewConfig() *Config {
 func getEnv(key string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
-		log.Panicf("ENV VAR %s has to be set", key)
+		panic(fmt.Sprintf("ENV VAR %s has to be set", key))
 	}
 	return value
 }
@@ -53,7 +52,7 @@ func getEnvAsInt64(key string) int64 {
 	valueStr := getEnv(key)
 	value, err := strconv.ParseInt(valueStr, 10, 64)
 	if err != nil {
-		log.Panicf("ENV VAR %s=%s cannot be converted to an integer", key, valueStr)
+		panic(fmt.Sprintf("ENV VAR %s=%s cannot be converted to an integer", key, valueStr))
 	}
 	return value
 }

@@ -2,11 +2,10 @@ package slack
 
 import (
 	"fmt"
-	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/kyokomi/emoji"
 	"github.com/miguelff/cable/cable"
 	"github.com/nlopes/slack"
 	log "github.com/sirupsen/logrus"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,7 +21,7 @@ type API interface {
 	// IncomingEvents returns the channel of events slack is listening to
 	IncomingEvents() <-chan slack.RTMEvent
 	// PostMessage Posts a message in a slack channel
-	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
+	PostMessage(channelID string, options ...slack.MsgOption) error
 	// GetUsers retrieves information about the Users in the slack workspace the
 	// app is connected to
 	GetUsers() UserMap
@@ -57,8 +56,9 @@ func (adapter *APIAdapter) IncomingEvents() <-chan slack.RTMEvent {
 }
 
 // PostMessage forwards the call to the adapted Client's PostMessage method
-func (adapter *APIAdapter) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
-	return adapter.Client.PostMessage(channelID, options...)
+func (adapter *APIAdapter) PostMessage(channelID string, options ...slack.MsgOption) error {
+	_, _, err := adapter.Client.PostMessage(channelID, options...)
+	return err
 }
 
 // GetUsers returns the user information from slack and caches it locally for
@@ -145,18 +145,53 @@ func (s *Slack) GoRead() {
 		for {
 			select {
 			case msg := <-s.client.IncomingEvents():
-				switch ev := msg.Data.(type) {
-				case *slack.MessageEvent:
-					if ev.Channel != s.relayedChannelID || ev.BotID == s.botUserID {
-						continue
-					}
-					s.Inbox() <- &Message{ev, s.GetIdentities()}
+				update, err := s.ToInboxUpdate(msg)
+				if err != nil {
+					log.Debugf("Update from inbox discarded: %s", err)
+				} else {
+					s.Inbox() <- update
 				}
 			case <-s.ReadStopper:
 				return
 			}
 		}
 	}()
+}
+
+// ToInboxUpdate converts any event received in the read pump to a cable update
+// that can be fed into the inbox
+func (s *Slack) ToInboxUpdate(update interface{}) (cable.Update, error) {
+	switch ev := update.(slack.RTMEvent).Data.(type) {
+	case *slack.MessageEvent:
+		return s.toInboxMessage(ev)
+	default:
+		return nil, fmt.Errorf("ignoring unknown update type %s", update)
+	}
+}
+
+func (s *Slack) toInboxMessage(msg *slack.MessageEvent) (cable.Update, error) {
+	if msg.Channel != s.relayedChannelID || msg.BotID == s.botUserID {
+		return nil, fmt.Errorf("ignoring message %s", msg.Text)
+	}
+	var author cable.Author
+
+	users := s.GetIdentities()
+	if user, ok := users[msg.User]; ok {
+		author = cable.Author{
+			Name:  user.RealName,
+			Alias: user.Name,
+		}
+	} else {
+		author = cable.Author{
+			Name:  "Stranger",
+			Alias: msg.User,
+		}
+	}
+
+	return cable.Message{
+		Author:   &author,
+		Contents: &cable.Contents{msg.Text},
+	}, nil
 }
 
 // GoWrite spawns a goroutine that takes care of delivering to slack the
@@ -169,14 +204,14 @@ func (s *Slack) GoWrite() {
 	go func() {
 		for {
 			select {
-			case msg := <-s.Outbox():
-				msgOptions, err := msg.ToSlack()
+			case ou := <-s.Outbox():
+				update, err := s.FromOutboxUpdate(ou)
 				if err != nil {
-					log.Errorln("Slack error converting message to Client representation: ", err)
+					log.Infof("Update from inbox discarded: %s", err)
 				}
-				_, _, err = s.client.PostMessage(s.relayedChannelID, msgOptions...)
+				err = s.Send(update)
 				if err != nil {
-					log.Errorln("Slack error writing message: ", err)
+					log.Errorln("Error sending message: ", err)
 				}
 			case <-s.WriteStopper:
 				return
@@ -185,49 +220,50 @@ func (s *Slack) GoWrite() {
 	}()
 }
 
-/* Section: Slack message */
-
-// Message wraps a message event from slack and implements the Message
-// Interface
-type Message struct {
-	*slack.MessageEvent
-	Users UserMap
+// Send sends a slack update
+func (s *Slack) Send(update interface{}) error {
+	err := s.client.PostMessage(s.relayedChannelID, update.([]slack.MsgOption)...)
+	return err
 }
 
-// ToSlack is a no-op that returns an error, as we don't want to re-send
-// messages from slack to slack at the moment.
-func (sm Message) ToSlack() ([]slack.MsgOption, error) {
-	return nil, fmt.Errorf("Messages received in slack are not sent to slack")
+// FromOutboxUpdate converts the given Update into a []slack.MsgOption message, which
+// this pumper know how to send over the write
+func (s *Slack) FromOutboxUpdate(update cable.Update) (interface{}, error) {
+	switch ir := update.(type) {
+	case cable.Message:
+		return s.fromOutboxMessage(ir), nil
+	default:
+		return nil, fmt.Errorf("Cannot convert update to slack %s", update)
+	}
 }
 
-// ToTelegram converts a received slack message into a proper representation in
-// telegram
-func (sm Message) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
-	var text string
+func (s *Slack) fromOutboxMessage(m cable.Message) []slack.MsgOption {
+	var author string
+	var authorTokens []string
 
-	if user, ok := sm.Users[sm.User]; ok {
-		text = fmt.Sprintf("*%s (%s):* %s", user.RealName, user.Name, sm.Text)
+	if author := m.Author; author != nil {
+		if author.Name != "" {
+			authorTokens = append(authorTokens, author.Name)
+		}
+		if author.Alias != "" {
+			if len(authorTokens) > 0 {
+				authorTokens = append(authorTokens, fmt.Sprintf("(%s)", author.Alias))
+			} else {
+				authorTokens = append(authorTokens, author.Alias)
+			}
+		}
+	}
+
+	if len(authorTokens) > 0 {
+		author = strings.Join(authorTokens, " ")
 	} else {
-		text = fmt.Sprintf("*Stranger:* %s", sm.Text)
+		author = ""
 	}
 
-	return telegram.MessageConfig{
-		BaseChat: telegram.BaseChat{
-			ChatID:           telegramChatID,
-			ReplyToMessageID: 0,
-		},
-		Text:                  emoji.Sprint(text),
-		DisableWebPagePreview: false,
-		ParseMode:             telegram.ModeMarkdown,
-	}, nil
-}
-
-// String returns a human readable representation of a slack message for
-// debugging purposes
-func (sm Message) String() string {
-	if user, ok := sm.Users[sm.User]; ok {
-		return fmt.Sprintf("%s: %s", user.Name, sm.Text)
-
+	attachment := slack.Attachment{
+		Fallback:   m.Contents.String(),
+		AuthorName: author,
+		Text:       m.Contents.String(),
 	}
-	return fmt.Sprintf("Stranger: %s", sm.Text)
+	return []slack.MsgOption{slack.MsgOptionAttachments(attachment)}
 }

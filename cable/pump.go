@@ -21,7 +21,7 @@ type ReadPumper interface {
 	// StopRead stops the read goroutine
 	StopRead()
 	// Inbox returns a channel containing the messages read by the ReadPumper
-	Inbox() chan Message
+	Inbox() chan Update
 }
 
 // WritePumper is the interface implemented by Write pumpers.
@@ -32,21 +32,21 @@ type WritePumper interface {
 	// StopWrite stops the write goroutine
 	StopWrite()
 	// Outbox returns a channel of messages, which will be processed by GoWrite
-	Outbox() chan Message
+	Outbox() chan Update
 }
 
 // Pump is a struct that describes an entity with an inbox and
 // and outbox channel of Messages, and their companion stop channels
 // to let the pump know when to stop reading or writing
 type Pump struct {
-	InboxCh      chan Message
+	InboxCh      chan Update
 	ReadStopper  chan interface{}
-	OutboxCh     chan Message
+	OutboxCh     chan Update
 	WriteStopper chan interface{}
 }
 
 // Inbox returns the inbox channel of the pump
-func (p *Pump) Inbox() chan Message {
+func (p *Pump) Inbox() chan Update {
 	return p.InboxCh
 }
 
@@ -57,7 +57,7 @@ func (p *Pump) StopRead() {
 }
 
 // Outbox returns the outbox channel of the pump
-func (p *Pump) Outbox() chan Message {
+func (p *Pump) Outbox() chan Update {
 	return p.OutboxCh
 }
 
@@ -71,9 +71,9 @@ func (p *Pump) StopWrite() {
 // InboxCh and OutboxCh as buffered channels of size DefaultBufferSize
 func NewPump() *Pump {
 	return &Pump{
-		InboxCh:      make(chan Message, DefaultBufferSize),
+		InboxCh:      make(chan Update, DefaultBufferSize),
 		ReadStopper:  make(chan interface{}),
-		OutboxCh:     make(chan Message, DefaultBufferSize),
+		OutboxCh:     make(chan Update, DefaultBufferSize),
 		WriteStopper: make(chan interface{}),
 	}
 }
