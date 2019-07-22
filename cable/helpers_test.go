@@ -22,7 +22,7 @@ const (
 	unknownTelegramChatID
 )
 
-/* fake pump */
+/* fake Pumper */
 
 type fakePumper struct {
 	*Pump
@@ -203,7 +203,8 @@ type slackJSONMessage struct {
 // This method receives a slice slack.MsgOption, which is what Slack can send
 // through its API. slack.MsgOption is not really a struct but a closure that
 // when called given a context returns the HTML payload to send.
-// slack.UnsafeApplyMsgOptions let obtain the JSON representation of the data
+//
+// slack.UnsafeApplyMsgOptions lets obtain the JSON representation of the data
 // being send, and we decode it into []slackJSONMessage to use it more easily in
 // tests
 func asSlackJSONMessage(slackMessages slack.MsgOption) slackJSONMessage {
