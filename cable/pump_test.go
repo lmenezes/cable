@@ -6,17 +6,16 @@ import (
 )
 
 func TestBidirectionalPumpConnection(t *testing.T) {
-	left := NewPump()
-	right := NewPump()
+	left := newFakePumper()
+	right := newFakePumper()
 
 	bidi := NewBidirectionalPumpConnection(left, right)
 	bidi.Go()
+	defer bidi.Stop()
 
-	left.Inbox <- &fakeMessage{text: "Fed into left"}
-	right.Inbox <- &fakeMessage{text: "Fed into right"}
+	left.Inbox() <- &fakeMessage{text: "Fed into left"}
+	right.Inbox() <- &fakeMessage{text: "Fed into right"}
 
-	bidi.Stop()
-
-	Equal(t, "Fed into left", (<-right.Outbox).String())
-	Equal(t, "Fed into right", (<-left.Outbox).String())
+	Equal(t, "Fed into left", (<-right.Outbox()).String())
+	Equal(t, "Fed into right", (<-left.Outbox()).String())
 }

@@ -21,11 +21,11 @@ type TelegramAPI interface {
 	Send(c telegram.Chattable) (telegram.Message, error)
 }
 
-/* Section: Telegram type implementing ReadPump and WritePump */
+/* Section: Telegram type implementing GoRead and GoWrite */
 
 // Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
-	// Pump is the pair of Inbox and Outbox channel to receive
+	// Pump is the pair of InboxCh and OutboxCh channel to receive
 	// messages from and write messages to Telegram
 	*Pump
 	// client is the telegram API client
@@ -53,9 +53,9 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	}
 }
 
-// ReadPump makes telegram listen for messages in a different goroutine.
-// Those messages will be pushed to the Inbox of the Pump.
-func (t *Telegram) ReadPump() {
+// GoRead makes telegram listen for messages in a different goroutine.
+// Those messages will be pushed to the InboxCh of the Pump.
+func (t *Telegram) GoRead() {
 	u := telegram.NewUpdate(0)
 	u.Timeout = readTimeoutSecs
 
@@ -65,30 +65,40 @@ func (t *Telegram) ReadPump() {
 	}
 
 	go func() {
-		for ev := range updates {
-			if ev.Message == nil {
-				continue
+		for {
+			select {
+			case ev := <-updates:
+				if ev.Message == nil {
+					continue
+				}
+				msg := ev.Message
+				if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
+					continue
+				}
+				t.InboxCh <- &TelegramMessage{ev}
+			case <-t.ReadStopper:
+				return
 			}
-			msg := ev.Message
-			if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
-				continue
-			}
-			t.Inbox <- &TelegramMessage{ev}
 		}
 	}()
 }
 
-// WritePump takes care of relaying messages arriving at the outbox
-func (t *Telegram) WritePump() {
+// GoWrite takes care of relaying messages arriving at the outbox
+func (t *Telegram) GoWrite() {
 	go func() {
-		for m := range t.Outbox {
-			msg, err := m.ToTelegram(t.relayedChatID)
-			if err != nil {
-				log.Errorln("Telegram error converting message to telegram representation: ", err)
-			}
-			_, err = t.client.Send(msg)
-			if err != nil {
-				log.Errorln("Telegram error writing message: ", err)
+		for {
+			select {
+			case m := <-t.OutboxCh:
+				msg, err := m.ToTelegram(t.relayedChatID)
+				if err != nil {
+					log.Errorln("Telegram error converting message to telegram representation: ", err)
+				}
+				_, err = t.client.Send(msg)
+				if err != nil {
+					log.Errorln("Telegram error writing message: ", err)
+				}
+			case <-t.WriteStopper:
+				return
 			}
 		}
 	}()

@@ -27,7 +27,7 @@ func TestTelegram_ReadPump(t *testing.T) {
 		Pump:          NewPump(),
 	}
 
-	fakeTelegram.ReadPump()
+	fakeTelegram.GoRead()
 
 	// wait for the pump to to process the channel up to 1 second, or timeout
 	timeout := time.NewTimer(1 * time.Second)
@@ -40,15 +40,17 @@ WAIT:
 			break WAIT
 		default:
 			if len(updatesCh) == 0 {
-				close(fakeTelegram.Inbox)
+				close(fakeTelegram.InboxCh)
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
+	fakeTelegram.StopRead()
+
 	var inbox []Message
-	for message := range fakeTelegram.Inbox {
+	for message := range fakeTelegram.InboxCh {
 		inbox = append(inbox, message)
 	}
 
@@ -67,10 +69,10 @@ func TestTelegram_WritePump(t *testing.T) {
 		Pump:          NewPump(),
 	}
 
-	fakeTelegram.Outbox <- createSlackMessage("Sup Jay!", "WILL")
-	fakeTelegram.Outbox <- createSlackMessage(":clap: Psss!", "JAZZ")
+	fakeTelegram.OutboxCh <- createSlackMessage("Sup Jay!", "WILL")
+	fakeTelegram.OutboxCh <- createSlackMessage(":clap: Psss!", "JAZZ")
 
-	fakeTelegram.WritePump()
+	fakeTelegram.GoWrite()
 
 	// wait for the pump to to process the channel up to 1 second, or timeout
 	timeout := time.NewTimer(1 * time.Second)
@@ -82,12 +84,14 @@ WAIT:
 			Fail(t, "timeout while processing the Read Pump")
 			break WAIT
 		default:
-			if len(fakeTelegram.Outbox) == 0 {
+			if len(fakeTelegram.OutboxCh) == 0 {
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
+
+	fakeTelegram.StopWrite()
 
 	Equal(t, 2, len(client.sent))
 	Equal(t, "*Stranger:* Sup Jay!", client.sent[0].(telegram.MessageConfig).Text)

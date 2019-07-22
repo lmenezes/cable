@@ -46,11 +46,11 @@ func (adapter *slackAPIAdapter) GetUsers() ([]slack.User, error) {
 // UserMap is a collection of slack Users indexed by their ID, which is a string
 type UserMap map[string]slack.User
 
-/* Section: Slack type implementing ReadPump() and WritePump() */
+/* Section: Slack type implementing GoRead() and GoWrite() */
 
 // Slack adapts the Telegram Api creating a Pump of messages
 type Slack struct {
-	// Pump is the pair of Inbox and Outbox channel to receive
+	// Pump is the pair of InboxCh and OutboxCh channel to receive
 	// messages from and write messages to Slack
 	*Pump
 	// client is the slack api client
@@ -118,34 +118,43 @@ func (s *Slack) GetIdentities() UserMap {
 	return res
 }
 
-// ReadPump makes slack listening for messages in a different goroutine.
-// Those messages will be pushed to the Inbox of the Pump.
-func (s *Slack) ReadPump() {
+// GoRead makes slack listening for messages in a different goroutine.
+// Those messages will be pushed to the InboxCh of the Pump.
+func (s *Slack) GoRead() {
 	go func() {
-		for msg := range s.client.IncomingEvents() {
-			switch ev := msg.Data.(type) {
-			case *slack.MessageEvent:
-				if ev.Channel != s.relayedChannelID || ev.BotID == s.botUserID {
-					continue
+		for {
+			select {
+			case msg := <-s.client.IncomingEvents():
+				switch ev := msg.Data.(type) {
+				case *slack.MessageEvent:
+					if ev.Channel != s.relayedChannelID || ev.BotID == s.botUserID {
+						continue
+					}
+					s.InboxCh <- &SlackMessage{ev, s.GetIdentities()}
 				}
-				s.Inbox <- &SlackMessage{ev, s.GetIdentities()}
+			case <-s.ReadStopper:
+				return
 			}
 		}
 	}()
 }
 
-// WritePump takes care of relaying messages arriving at the outbox
-func (s *Slack) WritePump() {
+// GoWrite takes care of relaying messages arriving at the outbox
+func (s *Slack) GoWrite() {
 	go func() {
 		for {
-			m := <-s.Outbox
-			msgOptions, err := m.ToSlack()
-			if err != nil {
-				log.Errorln("Slack error converting message to client representation: ", err)
-			}
-			_, _, err = s.client.PostMessage(s.relayedChannelID, msgOptions...)
-			if err != nil {
-				log.Errorln("Slack error writing message: ", err)
+			select {
+			case msg := <-s.OutboxCh:
+				msgOptions, err := msg.ToSlack()
+				if err != nil {
+					log.Errorln("Slack error converting message to client representation: ", err)
+				}
+				_, _, err = s.client.PostMessage(s.relayedChannelID, msgOptions...)
+				if err != nil {
+					log.Errorln("Slack error writing message: ", err)
+				}
+			case <-s.WriteStopper:
+				return
 			}
 		}
 	}()

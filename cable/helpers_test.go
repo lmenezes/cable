@@ -22,6 +22,20 @@ const (
 	unknownTelegramChatID
 )
 
+/* fake pump */
+
+type fakePumper struct {
+	*Pump
+}
+
+func newFakePumper() *fakePumper {
+	return &fakePumper{NewPump()}
+}
+
+func (*fakePumper) GoRead() {}
+
+func (*fakePumper) GoWrite() {}
+
 /* fake Message */
 
 type fakeMessage struct {
