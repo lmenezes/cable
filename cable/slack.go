@@ -12,6 +12,9 @@ import (
 
 /* Section: Slack API interface and its slack.Client adapter */
 
+// UserMap is a collection of slack Users indexed by their ID, which is a string
+type UserMap map[string]slack.User
+
 // SlackAPI lets us replace the slack API client with something that behaves like it.
 // This is used to improve testability
 type SlackAPI interface {
@@ -23,9 +26,6 @@ type SlackAPI interface {
 	// app is connected to
 	GetUsers() (UserMap, error)
 }
-
-// UserMap is a collection of slack Users indexed by their ID, which is a string
-type UserMap map[string]slack.User
 
 // Adapts an api.Client to conform to the SlackAPI interface
 type slackAPIAdapter struct {
