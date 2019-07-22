@@ -97,6 +97,11 @@ func NewBidirectionalPumpConnection(left Pumper, right Pumper) *BidirectionalPum
 // Go spawns a goroutine processing the bidirectional connection
 func (c BidirectionalPumpConnection) Go() {
 	go func() {
+		c.Left.GoRead()
+		c.Left.GoWrite()
+		c.Right.GoRead()
+		c.Right.GoWrite()
+
 		for {
 			select {
 			case m := <-c.Left.Inbox():
@@ -114,6 +119,7 @@ func (c BidirectionalPumpConnection) Go() {
 			}
 		}
 	}()
+
 }
 
 // Stop stops the processing of the bidirectional connection

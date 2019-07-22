@@ -8,13 +8,7 @@ import (
 // where messages arrived to slack are written into telegram and vice-versa
 func Setup(config *Config) {
 	slack := NewSlack(config.SlackToken, config.SlackRelayedChannel, config.SlackBotUserID)
-	slack.GoRead()
-	slack.GoWrite()
-
 	telegram := NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID, false)
-	telegram.GoRead()
-	telegram.GoWrite()
-
 	NewBidirectionalPumpConnection(slack, telegram).Go()
 	log.Infoln("Slack and Telegram are now connected.")
 }

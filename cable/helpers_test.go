@@ -67,9 +67,7 @@ func (api *fakeSlackAPI) IncomingEvents() <-chan slack.RTMEvent {
 }
 
 func (api *fakeSlackAPI) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
-	for _, msg := range options {
-		api.sent = append(api.sent, msg)
-	}
+	api.sent = append(api.sent, options...)
 	return "", "", nil
 }
 
