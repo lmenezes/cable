@@ -15,13 +15,17 @@ import (
 // SlackAPI lets us replace the slack API client with something that behaves like it.
 // This is used to improve testability
 type SlackAPI interface {
-	// IncomingEvents returns the channel of events the slack is listening to
+	// IncomingEvents returns the channel of events slack is listening to
 	IncomingEvents() <-chan slack.RTMEvent
 	// PostMessage Posts a message in a slack channel
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
-	// GetUsers retrieves information about a workspace in Slack
-	GetUsers() ([]slack.User, error)
+	// GetUsers retrieves information about the users in the slack workspace the
+	// app is connected to
+	GetUsers() (UserMap, error)
 }
+
+// UserMap is a collection of slack Users indexed by their ID, which is a string
+type UserMap map[string]slack.User
 
 // Adapts an api.Client to conform to the SlackAPI interface
 type slackAPIAdapter struct {
@@ -42,12 +46,17 @@ func (adapter *slackAPIAdapter) PostMessage(channelID string, options ...slack.M
 	return adapter.client.PostMessage(channelID, options...)
 }
 
-func (adapter *slackAPIAdapter) GetUsers() ([]slack.User, error) {
-	return adapter.client.GetUsers()
+func (adapter *slackAPIAdapter) GetUsers() (UserMap, error) {
+	users, err := adapter.GetUsers()
+	if err != nil {
+		log.Errorln("Cannot get user identities", err)
+	}
+	res := make(UserMap)
+	for _, u := range users {
+		res[u.ID] = u
+	}
+	return res, err
 }
-
-// UserMap is a collection of slack Users indexed by their ID, which is a string
-type UserMap map[string]slack.User
 
 /* Section: Slack type implementing GoRead() and GoWrite() */
 
@@ -105,19 +114,15 @@ func (s *Slack) GetIdentities() UserMap {
 		}()
 	}()
 
-	log.Debugln("Setting users cache...")
-	users, err := s.client.GetUsers()
-	if err != nil {
-		log.Errorln("Cannot get user identities", err)
-	}
-	res := make(UserMap)
-	for _, u := range users {
-		res[u.ID] = u
+	res, err := s.client.GetUsers()
+
+	if err == nil {
+		log.Debugln("Setting users cache...")
+		s.cacheMutex.Lock()
+		s.userIdentitiesCache = res
+		s.cacheMutex.Unlock()
 	}
 
-	s.cacheMutex.Lock()
-	s.userIdentitiesCache = res
-	s.cacheMutex.Unlock()
 	return res
 }
 

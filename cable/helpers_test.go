@@ -59,7 +59,7 @@ func (fm fakeMessage) String() string {
 type fakeSlackAPI struct {
 	rtmEvents chan slack.RTMEvent
 	sent      []slack.MsgOption
-	users     []slack.User
+	users     UserMap
 }
 
 func (api *fakeSlackAPI) IncomingEvents() <-chan slack.RTMEvent {
@@ -71,7 +71,7 @@ func (api *fakeSlackAPI) PostMessage(channelID string, options ...slack.MsgOptio
 	return "", "", nil
 }
 
-func (api *fakeSlackAPI) GetUsers() ([]slack.User, error) {
+func (api *fakeSlackAPI) GetUsers() (UserMap, error) {
 	return api.users, nil
 }
 

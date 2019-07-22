@@ -22,12 +22,15 @@ func TestSlack_ReadPump(t *testing.T) {
 		updatesCh <- update
 	}
 
+	userMap := make(UserMap)
+	userMap[slackUserID] = createSlackUser(slackUserID, "Will Smith", "freshprince")
+
 	fakeSlack := &Slack{
 		relayedChannelID: slackChannelID,
 		botUserID:        slackBotID,
 		client: &fakeSlackAPI{
 			rtmEvents: updatesCh,
-			users:     []slack.User{createSlackUser(slackUserID, "Will Smith", "freshprince")},
+			users:     userMap,
 		},
 		Pump: NewPump(),
 	}
