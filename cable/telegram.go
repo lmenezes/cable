@@ -11,7 +11,7 @@ import (
 const (
 	// readTimeoutSecs is the number of seconds before timing out the
 	// read pump. Timing out implies resetting the connection with the
-	// server, which can help in case the connection hung.
+	// server, which can help in case the connection died.
 	readTimeoutSecs = 60
 )
 
@@ -28,16 +28,16 @@ type TelegramAPI interface {
 
 // Telegram adapts the Telegram Api creating a Pump of messages
 type Telegram struct {
-	// Pump is the pair of InboxCh and OutboxCh channel to receive
+	// Pump is the pair of InboxCh and OutboxCh channels to receive
 	// messages from and write messages to Telegram
 	*Pump
 	// client is the telegram API client
 	client TelegramAPI
-	// relayedChatID is the ID of the chat messages will be read from and
-	// relayed to
+	// relayedChatID is the ID of the group chat which messages will be read
+	// from and relayed to
 	relayedChatID int64
-	// botUserID is the id of the slack app installed in the organization,
-	// which is used to stop relaying messages posted in telegram itself
+	// botUserID is the id of the telegram app installed, which is used to
+	// discard messages looped back by the own bot
 	botUserID int
 }
 
@@ -58,6 +58,10 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 
 // GoRead makes telegram listen for messages in a different goroutine.
 // Those messages will be pushed to the InboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding ReadStopper synchronization channel
+// which can be done by calling StopRead() - a method coming from Pump and
+// which is accessed directly through the Telegram value.
 func (t *Telegram) GoRead() {
 	u := telegram.NewUpdate(0)
 	u.Timeout = readTimeoutSecs
@@ -86,7 +90,12 @@ func (t *Telegram) GoRead() {
 	}()
 }
 
-// GoWrite takes care of relaying messages arriving at the outbox
+// GoWrite spawns a goroutine that takes care of delivering to telegram the
+// messages arriving at the OutboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding WriteStopper synchronization channel
+// which can be done by calling StopWrite() - a method coming from Pump and
+// which is accessed directly through the Telegram value.
 func (t *Telegram) GoWrite() {
 	go func() {
 		for {

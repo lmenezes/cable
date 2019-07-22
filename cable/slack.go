@@ -150,8 +150,8 @@ func (s *Slack) GoRead() {
 	}()
 }
 
-// GoWrite spawns a goroutine that takes care of relaying messages arriving at
-// the OutboxCh of the Pump.
+// GoWrite spawns a goroutine that takes care of delivering to slack the
+// messages arriving at the OutboxCh of the Pump.
 //
 // The goroutine can be stopped by feeding WriteStopper synchronization channel
 // which can be done by calling StopWrite() - a method coming from Pump and
