@@ -9,11 +9,11 @@ import (
 
 func TestTelegram_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
-		{}, // message not set, discarded
-		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                          // discarded, update by the bot
-		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                         // selected, by a user in the relayed channel
-		createTelegramUserUpdate(unkownTelegramChatID, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
-		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),            // discarded, by a user in a chat other than the relayed channel
+		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                          // discarded, because written by the bot itself
+		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                         // selected
+		createTelegramUserUpdate(unkownTelegramChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
+		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),            // selected
+		{}, // discarded: no message
 	}
 	updatesCh := make(chan telegram.Update, len(updates))
 	for _, update := range updates {

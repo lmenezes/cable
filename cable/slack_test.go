@@ -9,11 +9,11 @@ import (
 
 func TestSlack_ReadPump(t *testing.T) {
 	updates := []slack.RTMEvent{
-		{}, // message not set, discarded
-		createSlackBotUpdate(slackChatID, "Hey Hey!"),                          // discarded, update by the bot
-		createSlackUserUpdate(slackChatID, "Sup Jay!"),                         // selected, by a user in the relayed channel
-		createSlackUserUpdate(unkownSlackChatID, "Uncle Phil, where are you?"), // discarded, by a user in a chat other than the relayed channel
-		createSlackUserUpdate(slackChatID, "Uncle Phil, you here?"),            // discarded, by a user in a chat other than the relayed channel
+		createSlackBotUpdate(slackChatID, "Hey Hey!"),                          // discarded, because written by the bot itself
+		createSlackUserUpdate(slackChatID, "Sup Jay!"),                         // selected
+		createSlackUserUpdate(unkownSlackChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
+		createSlackUserUpdate(slackChatID, "Uncle Phil, you here?"),            // selected
+		{}, // discarded: no message
 	}
 
 	updatesCh := make(chan slack.RTMEvent, len(updates))
@@ -21,13 +21,14 @@ func TestSlack_ReadPump(t *testing.T) {
 		updatesCh <- update
 	}
 
-	users := []slack.User{createSlackUser(slackUserID, "Will Smith", "freshprince")}
-
 	fakeSlack := &Slack{
 		relayedChannelID: slackChatID,
 		botUserID:        slackBotID,
-		client:           &fakeSlackAPI{rtmEvents: updatesCh, users: users},
-		Pump:             NewPump(),
+		client: &fakeSlackAPI{
+			rtmEvents: updatesCh,
+			users:     []slack.User{createSlackUser(slackUserID, "Will Smith", "freshprince")},
+		},
+		Pump: NewPump(),
 	}
 
 	fakeSlack.ReadPump()
