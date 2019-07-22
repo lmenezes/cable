@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestSlack_ReadPump(t *testing.T) {
+func TestSlack_GoRead(t *testing.T) {
 	updates := []slack.RTMEvent{
 		createSlackBotUpdate(slackChannelID, "Hey Hey!"),                           // discarded, because written by the bot itself
 		createSlackUserUpdate(slackChannelID, "Sup Jay!"),                          // selected
@@ -66,7 +66,7 @@ WAIT:
 	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
 }
 
-func TestSlack_WritePump(t *testing.T) {
+func TestSlack_GoWrite(t *testing.T) {
 	client := &fakeSlackAPI{}
 
 	fakeSlack := &Slack{

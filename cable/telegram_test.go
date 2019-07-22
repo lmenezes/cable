@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestTelegram_ReadPump(t *testing.T) {
+func TestTelegram_GoRead(t *testing.T) {
 	updates := []telegram.Update{
 		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                           // discarded, because written by the bot itself
 		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                          // selected
@@ -59,7 +59,7 @@ WAIT:
 	Equal(t, "freshprince: Uncle Phil, you here?", inbox[1].String())
 }
 
-func TestTelegram_WritePump(t *testing.T) {
+func TestTelegram_GoWrite(t *testing.T) {
 	client := &fakeTelegramAPI{}
 
 	fakeTelegram := &Telegram{
