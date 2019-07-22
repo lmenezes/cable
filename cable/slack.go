@@ -71,8 +71,7 @@ type Slack struct {
 	// relayed to
 	relayedChannelID string
 	// botUserID is the id of the slack installed in the organization, which is
-	// used to discard messages posted in slack as a result of relaying another
-	// service
+	// used to discard messages looped back by the own bot
 	botUserID string
 	// userIdentitiesCache is a local cache of the list of users
 	// in the workspace slack is installed in
@@ -128,6 +127,10 @@ func (s *Slack) GetIdentities() UserMap {
 
 // GoRead makes slack listening for messages in a different goroutine.
 // Those messages will be pushed to the InboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding ReadStopper synchronization channel
+// which can be done by calling StopRead() - a method coming from Pump and
+// which is accessed directly through the Slack value.
 func (s *Slack) GoRead() {
 	go func() {
 		for {
@@ -147,7 +150,12 @@ func (s *Slack) GoRead() {
 	}()
 }
 
-// GoWrite takes care of relaying messages arriving at the outbox
+// GoWrite spawns a goroutine that takes care of relaying messages arriving at
+// the OutboxCh of the Pump.
+//
+// The goroutine can be stopped by feeding WriteStopper synchronization channel
+// which can be done by calling StopWrite() - a method coming from Pump and
+// which is accessed directly through the Slack value.
 func (s *Slack) GoWrite() {
 	go func() {
 		for {
