@@ -28,8 +28,8 @@ type Telegram struct {
 	// Pump is the pair of Inbox and Outbox channel to receive
 	// messages from and write messages to Telegram
 	*Pump
-	// bot is the telegram API client
-	bot TelegramAPI
+	// client is the telegram API client
+	client TelegramAPI
 	// relayedChannelID is the channel messages will be read from and relayed to
 	relayedChannelID int64
 	// botUserID is the id of the slack app installed in the organization, which is
@@ -46,7 +46,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	bot.Debug = debug
 	return &Telegram{
 		Pump:             NewPump(),
-		bot:              bot,
+		client:           bot,
 		relayedChannelID: relayedChannel,
 		botUserID:        BotUserID,
 	}
@@ -58,7 +58,7 @@ func (t *Telegram) ReadPump() {
 	u := telegram.NewUpdate(0)
 	u.Timeout = readTimeoutSecs
 
-	updates, err := t.bot.GetUpdatesChan(u)
+	updates, err := t.client.GetUpdatesChan(u)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -85,7 +85,7 @@ func (t *Telegram) WritePump() {
 			if err != nil {
 				log.Errorln("Telegram error converting message to telegram representation: ", err)
 			}
-			_, err = t.bot.Send(msg)
+			_, err = t.client.Send(msg)
 			if err != nil {
 				log.Errorln("Telegram error writing message: ", err)
 			}
