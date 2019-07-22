@@ -46,8 +46,6 @@ func TestNewConfig_MissingConfigKey(t *testing.T) {
 		resetEnv()
 	}()
 
-	resetEnv()
-
 	setEnv()
 	os.Unsetenv("TELEGRAM_RELAYED_CHANNEL")
 	NewConfig()
@@ -60,8 +58,6 @@ func TestNewConfig_WrongNumericKey(t *testing.T) {
 		}
 		resetEnv()
 	}()
-
-	resetEnv()
 
 	setEnv()
 	os.Setenv("TELEGRAM_BOT_USER_ID", "NOT_AN_INTEGER")
