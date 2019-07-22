@@ -126,7 +126,7 @@ func (c BidirectionalPumpConnection) Go() {
 
 }
 
-// Stop stops the gorouting started by Go
+// Stop stops the goroutine started by Go
 func (c BidirectionalPumpConnection) Stop() {
 	c.stop <- true
 }

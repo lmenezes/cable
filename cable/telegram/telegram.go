@@ -1,8 +1,9 @@
-package cable
+package telegram
 
 import (
 	"fmt"
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/miguelff/cable/cable"
 	"github.com/nlopes/slack"
 	log "github.com/sirupsen/logrus"
 	"strings"
@@ -17,22 +18,22 @@ const (
 
 /* Section: Telegram API interface */
 
-// TelegramAPI lets us replace the a telegram-slack-telegram.BotAPI
+// API lets us replace the a telegram-slack-telegram.BotAPI
 // with something that behaves like it. This is useful for tests
-type TelegramAPI interface {
+type API interface {
 	GetUpdatesChan(config telegram.UpdateConfig) (telegram.UpdatesChannel, error)
 	Send(c telegram.Chattable) (telegram.Message, error)
 }
 
 /* Section: Telegram type implementing GoRead and GoWrite */
 
-// Telegram adapts the Telegram Api creating a Pump of messages
+// Telegram adapts the Telegram API creating a Pump of messages
 type Telegram struct {
 	// Pump is the pair of InboxCh and OutboxCh channels to receive
 	// messages from and write messages to Telegram
-	*Pump
+	*cable.Pump
 	// client is the telegram API client
-	client TelegramAPI
+	client API
 	// relayedChatID is the ID of the group chat which messages will be read
 	// from and relayed to
 	relayedChatID int64
@@ -49,7 +50,7 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	}
 	bot.Debug = debug
 	return &Telegram{
-		Pump:          NewPump(),
+		Pump:          cable.NewPump(),
 		client:        bot,
 		relayedChatID: relayedChannel,
 		botUserID:     BotUserID,
@@ -82,7 +83,7 @@ func (t *Telegram) GoRead() {
 				if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
 					continue
 				}
-				t.InboxCh <- &TelegramMessage{ev}
+				t.Inbox() <- &Message{ev}
 			case <-t.ReadStopper:
 				return
 			}
@@ -100,7 +101,7 @@ func (t *Telegram) GoWrite() {
 	go func() {
 		for {
 			select {
-			case m := <-t.OutboxCh:
+			case m := <-t.Outbox():
 				msg, err := m.ToTelegram(t.relayedChatID)
 				if err != nil {
 					log.Errorln("Telegram error converting message to telegram representation: ", err)
@@ -118,14 +119,14 @@ func (t *Telegram) GoWrite() {
 
 /* Telegram message */
 
-// TelegramMessage wraps a telegram update and implements the Message Interface
-type TelegramMessage struct {
+// Message wraps a telegram update and implements the Message Interface
+type Message struct {
 	telegram.Update
 }
 
 // ToSlack converts a received telegram message into a proper representation in
 // slack
-func (tm TelegramMessage) ToSlack() ([]slack.MsgOption, error) {
+func (tm Message) ToSlack() ([]slack.MsgOption, error) {
 	var authorName []string
 
 	if firstName := tm.Update.Message.From.FirstName; firstName != "" {
@@ -155,12 +156,12 @@ func (tm TelegramMessage) ToSlack() ([]slack.MsgOption, error) {
 
 // ToTelegram is a no-op that returns an error as we dont want to re-send
 // messages from telegram to telegram at the moment
-func (tm TelegramMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
+func (tm Message) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
 	return telegram.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
 }
 
 // String returns a human readable representation of a telegram message for
 // debugging purposes
-func (tm TelegramMessage) String() string {
+func (tm Message) String() string {
 	return fmt.Sprintf("%s: %s", tm.Update.Message.From.UserName, tm.Message.Text)
 }

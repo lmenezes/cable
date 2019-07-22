@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/joho/godotenv"
 	"github.com/miguelff/cable/cable"
+	s "github.com/miguelff/cable/cable/slack"
+	t "github.com/miguelff/cable/cable/telegram"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -20,7 +22,11 @@ func main() {
 
 	config := cable.NewConfig()
 	log.Debugf("Config %v", config)
-	cable.Setup(config)
+
+	slack := s.NewSlack(config.SlackToken, config.SlackRelayedChannel, config.SlackBotUserID)
+	telegram := t.NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID, false)
+	cable.NewBidirectionalPumpConnection(slack, telegram).Go()
+	log.Infoln("Slack and Telegram are now connected.")
 
 	http.HandleFunc("/_health", ok)
 	http.HandleFunc("/", ok)

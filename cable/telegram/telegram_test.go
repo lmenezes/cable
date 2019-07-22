@@ -1,7 +1,8 @@
-package cable
+package telegram
 
 import (
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/miguelff/cable/cable"
 	. "github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestTelegram_GoRead(t *testing.T) {
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        &fakeTelegramAPI{updatesChannel: updatesCh},
-		Pump:          NewPump(),
+		Pump:          cable.NewPump(),
 	}
 
 	fakeTelegram.GoRead()
@@ -40,7 +41,7 @@ WAIT:
 			break WAIT
 		default:
 			if len(updatesCh) == 0 {
-				close(fakeTelegram.InboxCh)
+				close(fakeTelegram.Inbox())
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
@@ -49,8 +50,8 @@ WAIT:
 
 	fakeTelegram.StopRead()
 
-	var inbox []Message
-	for message := range fakeTelegram.InboxCh {
+	var inbox []cable.Message
+	for message := range fakeTelegram.Inbox() {
 		inbox = append(inbox, message)
 	}
 
@@ -66,11 +67,11 @@ func TestTelegram_GoWrite(t *testing.T) {
 		relayedChatID: telegramChatID,
 		botUserID:     telegramBotID,
 		client:        client,
-		Pump:          NewPump(),
+		Pump:          cable.NewPump(),
 	}
 
-	fakeTelegram.OutboxCh <- createSlackMessage("Sup Jay!", "WILL")
-	fakeTelegram.OutboxCh <- createSlackMessage(":clap: Psss!", "JAZZ")
+	fakeTelegram.Outbox() <- createSlackMessage("Sup Jay!", "WILL")
+	fakeTelegram.Outbox() <- createSlackMessage(":clap: Psss!", "JAZZ")
 
 	fakeTelegram.GoWrite()
 
@@ -84,7 +85,7 @@ WAIT:
 			Fail(t, "timeout while processing the Read Pump")
 			break WAIT
 		default:
-			if len(fakeTelegram.OutboxCh) == 0 {
+			if len(fakeTelegram.Outbox()) == 0 {
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)

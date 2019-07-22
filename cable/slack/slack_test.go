@@ -1,15 +1,16 @@
-package cable
+package slack
 
 import (
 	telegram "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/nlopes/slack"
+	"github.com/miguelff/cable/cable"
+	api "github.com/nlopes/slack"
 	. "github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestSlack_GoRead(t *testing.T) {
-	updates := []slack.RTMEvent{
+	updates := []api.RTMEvent{
 		createSlackBotUpdate(slackChannelID, "Hey Hey!"),                           // discarded, because written by the bot itself
 		createSlackUserUpdate(slackChannelID, "Sup Jay!"),                          // selected
 		createSlackUserUpdate(unknownSlackChannelID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
@@ -17,7 +18,7 @@ func TestSlack_GoRead(t *testing.T) {
 		{}, // discarded: no message
 	}
 
-	updatesCh := make(chan slack.RTMEvent, len(updates))
+	updatesCh := make(chan api.RTMEvent, len(updates))
 	for _, update := range updates {
 		updatesCh <- update
 	}
@@ -32,7 +33,7 @@ func TestSlack_GoRead(t *testing.T) {
 			rtmEvents: updatesCh,
 			users:     userMap,
 		},
-		Pump: NewPump(),
+		Pump: cable.NewPump(),
 	}
 
 	fakeSlack.GoRead()
@@ -47,7 +48,7 @@ WAIT:
 			break WAIT
 		default:
 			if len(updatesCh) == 0 {
-				close(fakeSlack.InboxCh)
+				close(fakeSlack.Inbox())
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
@@ -56,8 +57,8 @@ WAIT:
 
 	fakeSlack.StopRead()
 
-	var inbox []Message
-	for message := range fakeSlack.InboxCh {
+	var inbox []cable.Message
+	for message := range fakeSlack.Inbox() {
 		inbox = append(inbox, message)
 	}
 
@@ -73,11 +74,11 @@ func TestSlack_GoWrite(t *testing.T) {
 		relayedChannelID: slackChannelID,
 		botUserID:        slackBotID,
 		client:           client,
-		Pump:             NewPump(),
+		Pump:             cable.NewPump(),
 	}
 
-	fakeSlack.OutboxCh <- createTelegramMessage("Sup Jay!", "Will", "Smith", "freshprince")
-	fakeSlack.OutboxCh <- createTelegramMessage(":clap: Psss!", "Will", "Smith", "freshprince")
+	fakeSlack.Outbox() <- createTelegramMessage("Sup Jay!", "Will", "Smith", "freshprince")
+	fakeSlack.Outbox() <- createTelegramMessage(":clap: Psss!", "Will", "Smith", "freshprince")
 
 	fakeSlack.GoWrite()
 
@@ -91,7 +92,7 @@ WAIT:
 			Fail(t, "timeout while processing the Read Pump")
 			break WAIT
 		default:
-			if len(fakeSlack.OutboxCh) == 0 {
+			if len(fakeSlack.Outbox()) == 0 {
 				break WAIT
 			}
 			time.Sleep(10 * time.Millisecond)
@@ -110,26 +111,26 @@ WAIT:
 }
 
 func TestSlackMessage_String_KnownUser(t *testing.T) {
-	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	user := api.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
 	msg := createSlackMessage("Sup Jay!", slackUserID, user)
 	Equal(t, "freshprince: Sup Jay!", msg.String())
 }
 
 func TestSlackMessage_String_Stranger(t *testing.T) {
-	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	user := api.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
 	msg := createSlackMessage("Sup Jay!", unknownSlackUSerID, user)
 	Equal(t, "Stranger: Sup Jay!", msg.String())
 }
 
 func TestSlackMessage_ToSlack(t *testing.T) {
-	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	user := api.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
 	msg := createSlackMessage("Sup Jay!", slackUserID, user)
 	_, e := msg.ToSlack()
 	Error(t, e)
 }
 
 func TestSlackMessage_ToTelegram_KnownUser(t *testing.T) {
-	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	user := api.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
 	msg := createSlackMessage("Sup Jay! :boom:", slackUserID, user)
 	telegramChatID := int64(123)
 
@@ -148,7 +149,7 @@ func TestSlackMessage_ToTelegram_KnownUser(t *testing.T) {
 }
 
 func TestSlackMessage_ToTelegram_Stranger(t *testing.T) {
-	user := slack.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
+	user := api.User{ID: slackUserID, RealName: "Will Smith", Name: "freshprince"}
 	msg := createSlackMessage("Sup Jay! :boom:", "STRGRID", user)
 	telegramChatID := int64(123)
 
