@@ -32,12 +32,13 @@ func NewConfig() *Config {
 		SlackRelayedChannel:    getEnv("SLACK_RELAYED_CHANNEL"),
 		SlackBotUserID:         getEnv("SLACK_BOT_USER_ID"),
 		TelegramToken:          getEnv("TELEGRAM_TOKEN"),
-		TelegramRelayedChannel: int64(getEnvAsInt("TELEGRAM_RELAYED_CHANNEL")),
-		TelegramBotUserID:      getEnvAsInt("TELEGRAM_BOT_USER_ID"),
+		TelegramRelayedChannel: getEnvAsInt64("TELEGRAM_RELAYED_CHANNEL"),
+		TelegramBotUserID:      int(getEnvAsInt64("TELEGRAM_BOT_USER_ID")),
 	}
 }
 
-// Simple helper function to read an environment or return a default value
+// getEnv is a helper function to read an environment variable and panic if
+// it is missing
 func getEnv(key string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
@@ -46,10 +47,11 @@ func getEnv(key string) string {
 	return value
 }
 
-// Simple helper function to read an environment variable into integer or return a default value
-func getEnvAsInt(key string) int {
+// getEnvAsInt64 is a helper function to read an environment variable as a int64
+// and panic if it is missing or it cannot be parsed to int64
+func getEnvAsInt64(key string) int64 {
 	valueStr := getEnv(key)
-	value, err := strconv.Atoi(valueStr)
+	value, err := strconv.ParseInt(valueStr, 10, 64)
 	if err != nil {
 		log.Panicf("ENV VAR %s=%s cannot be converted to an integer", key, valueStr)
 	}
