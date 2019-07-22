@@ -55,7 +55,8 @@ type Slack struct {
 	*Pump
 	// client is the slack api client
 	client SlackAPI
-	// relayedChannelID is the channel messages will be read from and relayed to
+	// relayedChannelID is the ID of the channel messages will be read from and
+	// relayed to
 	relayedChannelID string
 	// botUserID is the id of the slack installed in the organization, which is
 	// used to discard messages posted in slack as a result of relaying another

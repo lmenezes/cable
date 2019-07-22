@@ -9,10 +9,10 @@ import (
 
 func TestTelegram_ReadPump(t *testing.T) {
 	updates := []telegram.Update{
-		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                          // discarded, because written by the bot itself
-		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                         // selected
-		createTelegramUserUpdate(unkownTelegramChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
-		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),            // selected
+		createTelegramBotUpdate(telegramChatID, "Hey Hey!"),                           // discarded, because written by the bot itself
+		createTelegramUserUpdate(telegramChatID, "Sup Jay!"),                          // selected
+		createTelegramUserUpdate(unknownTelegramChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
+		createTelegramUserUpdate(telegramChatID, "Uncle Phil, you here?"),             // selected
 		{}, // discarded: no message
 	}
 	updatesCh := make(chan telegram.Update, len(updates))
@@ -21,10 +21,10 @@ func TestTelegram_ReadPump(t *testing.T) {
 	}
 
 	fakeTelegram := &Telegram{
-		relayedChannelID: telegramChatID,
-		botUserID:        telegramBotID,
-		client:           &fakeTelegramAPi{updatesChannel: updatesCh},
-		Pump:             NewPump(),
+		relayedChatID: telegramChatID,
+		botUserID:     telegramBotID,
+		client:        &fakeTelegramAPi{updatesChannel: updatesCh},
+		Pump:          NewPump(),
 	}
 
 	fakeTelegram.ReadPump()
@@ -61,10 +61,10 @@ func TestTelegram_WritePump(t *testing.T) {
 	client := &fakeTelegramAPi{}
 
 	fakeTelegram := &Telegram{
-		relayedChannelID: telegramChatID,
-		botUserID:        telegramBotID,
-		client:           client,
-		Pump:             NewPump(),
+		relayedChatID: telegramChatID,
+		botUserID:     telegramBotID,
+		client:        client,
+		Pump:          NewPump(),
 	}
 
 	fakeTelegram.Outbox <- createSlackMessage("Sup Jay!", "WILL")

@@ -9,16 +9,16 @@ import (
 /* Constants used in tests */
 
 const (
-	slackUserID        = "USER"
-	unknownSlackUSerID = "UNKOWN_USER"
-	slackBotID         = "BOT"
-	slackChatID        = "CHANNEL"
-	unkownSlackChatID  = "UNKOWN_CHANNEL"
+	slackUserID           = "USER"
+	unknownSlackUSerID    = "UNKOWN_USER"
+	slackBotID            = "BOT"
+	slackChannelID        = "CHANNEL"
+	unknownSlackChannelID = "UNKOWN_CHANNEL"
 
 	telegramBotID = iota
 	telegramUserID
 	telegramChatID
-	unkownTelegramChatID
+	unknownTelegramChatID
 )
 
 /* fake Slack API */

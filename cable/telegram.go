@@ -30,10 +30,11 @@ type Telegram struct {
 	*Pump
 	// client is the telegram API client
 	client TelegramAPI
-	// relayedChannelID is the channel messages will be read from and relayed to
-	relayedChannelID int64
-	// botUserID is the id of the slack app installed in the organization, which is
-	// used to stop relaying messages posted in telegram itself
+	// relayedChatID is the ID of the chat messages will be read from and
+	// relayed to
+	relayedChatID int64
+	// botUserID is the id of the slack app installed in the organization,
+	// which is used to stop relaying messages posted in telegram itself
 	botUserID int
 }
 
@@ -45,10 +46,10 @@ func NewTelegram(token string, relayedChannel int64, BotUserID int, debug bool) 
 	}
 	bot.Debug = debug
 	return &Telegram{
-		Pump:             NewPump(),
-		client:           bot,
-		relayedChannelID: relayedChannel,
-		botUserID:        BotUserID,
+		Pump:          NewPump(),
+		client:        bot,
+		relayedChatID: relayedChannel,
+		botUserID:     BotUserID,
 	}
 }
 
@@ -69,7 +70,7 @@ func (t *Telegram) ReadPump() {
 				continue
 			}
 			msg := ev.Message
-			if msg.Chat == nil || msg.Chat.ID != t.relayedChannelID || msg.From.ID == t.botUserID {
+			if msg.Chat == nil || msg.Chat.ID != t.relayedChatID || msg.From.ID == t.botUserID {
 				continue
 			}
 			t.Inbox <- &TelegramMessage{ev}
@@ -81,7 +82,7 @@ func (t *Telegram) ReadPump() {
 func (t *Telegram) WritePump() {
 	go func() {
 		for m := range t.Outbox {
-			msg, err := m.ToTelegram(t.relayedChannelID)
+			msg, err := m.ToTelegram(t.relayedChatID)
 			if err != nil {
 				log.Errorln("Telegram error converting message to telegram representation: ", err)
 			}

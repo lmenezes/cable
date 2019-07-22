@@ -9,10 +9,10 @@ import (
 
 func TestSlack_ReadPump(t *testing.T) {
 	updates := []slack.RTMEvent{
-		createSlackBotUpdate(slackChatID, "Hey Hey!"),                          // discarded, because written by the bot itself
-		createSlackUserUpdate(slackChatID, "Sup Jay!"),                         // selected
-		createSlackUserUpdate(unkownSlackChatID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
-		createSlackUserUpdate(slackChatID, "Uncle Phil, you here?"),            // selected
+		createSlackBotUpdate(slackChannelID, "Hey Hey!"),                           // discarded, because written by the bot itself
+		createSlackUserUpdate(slackChannelID, "Sup Jay!"),                          // selected
+		createSlackUserUpdate(unknownSlackChannelID, "Uncle Phil, where are you?"), // discarded because written by a user in a chat other than the relayed channel
+		createSlackUserUpdate(slackChannelID, "Uncle Phil, you here?"),             // selected
 		{}, // discarded: no message
 	}
 
@@ -22,7 +22,7 @@ func TestSlack_ReadPump(t *testing.T) {
 	}
 
 	fakeSlack := &Slack{
-		relayedChannelID: slackChatID,
+		relayedChannelID: slackChannelID,
 		botUserID:        slackBotID,
 		client: &fakeSlackAPI{
 			rtmEvents: updatesCh,
@@ -64,7 +64,7 @@ func TestSlack_WritePump(t *testing.T) {
 	client := &fakeSlackAPI{}
 
 	fakeSlack := &Slack{
-		relayedChannelID: slackChatID,
+		relayedChannelID: slackChannelID,
 		botUserID:        slackBotID,
 		client:           client,
 		Pump:             NewPump(),
