@@ -5,6 +5,8 @@ import (
 	"github.com/nlopes/slack"
 )
 
+/* TODO: Make message independent of pumper implementations */
+
 // Message is the interface any message interchanged by a Pumper has to
 // implement
 type Message interface {

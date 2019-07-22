@@ -144,7 +144,7 @@ func (tm TelegramMessage) ToSlack() ([]slack.MsgOption, error) {
 	return []slack.MsgOption{slack.MsgOptionAttachments(attachment)}, nil
 }
 
-// ToTelegram is a no-op that returns an error, as we dont want to re-send
+// ToTelegram is a no-op that returns an error as we dont want to re-send
 // messages from telegram to telegram at the moment
 func (tm TelegramMessage) ToTelegram(telegramChatID int64) (telegram.MessageConfig, error) {
 	return telegram.MessageConfig{}, fmt.Errorf("Messages received in telegram are not sent back to telegram")
