@@ -14,7 +14,8 @@ const (
 	slackBotID         = "BOT"
 	slackChatID        = "CHANNEL"
 	unkownSlackChatID  = "UNKOWN_CHANNEL"
-	telegramBotID      = iota
+
+	telegramBotID = iota
 	telegramUserID
 	telegramChatID
 	unkownTelegramChatID
