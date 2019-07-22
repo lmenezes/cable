@@ -2,13 +2,15 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/miguelff/cable/go/cable"
+	"github.com/miguelff/cable/cable"
+	s "github.com/miguelff/cable/cable/slack"
+	t "github.com/miguelff/cable/cable/telegram"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
 func ok(w http.ResponseWriter, _ *http.Request) {
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func main() {
@@ -20,36 +22,14 @@ func main() {
 
 	config := cable.NewConfig()
 	log.Debugf("Config %v", config)
-	setupCable(config)
+
+	slack := s.NewSlack(config.SlackToken, config.SlackRelayedChannel, config.SlackBotUserID)
+	telegram := t.NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID, false)
+	cable.NewBidirectionalPumpConnection(slack, telegram).Go()
+	log.Infoln("Slack and Telegram are now connected.")
 
 	http.HandleFunc("/_health", ok)
 	http.HandleFunc("/", ok)
 
-	http.ListenAndServe(config.ListeningPort, nil)
-}
-
-// setupCable configures the integration between slack and telegram
-func setupCable(config *cable.Config) {
-	slack := cable.NewSlack(config.SlackToken, config.SlackRelayedChannel, config.SlackBotUserID)
-	slack.ReadPump()
-	slack.WritePump()
-
-	telegram := cable.NewTelegram(config.TelegramToken, config.TelegramRelayedChannel, config.TelegramBotUserID)
-	telegram.ReadPump()
-	telegram.WritePump()
-
-	go func() {
-		for {
-			select {
-			case m := <-slack.Inbox:
-				log.Debugln("[SLACK]", m)
-				telegram.Outbox <- m
-			case m := <-telegram.Inbox:
-				log.Debugln("[TELEGRAM]", m)
-				slack.Outbox <- m
-			}
-		}
-	}()
-
-	log.Infoln("Slack and Telegram are now connected.")
+	_ = http.ListenAndServe(config.ListeningPort, nil)
 }
